@@ -314,7 +314,7 @@
     mode: MODE, rights: RIGHTS, ready: ready,
     me: function () { return ME; }, can: can, settings: function () { return SET; },
     start: function () { return ready.then(function () { return S.auth.current(); }).then(function (u) { return u ? loadMe(u.uid).catch(function (e) { return S.auth.signOut().then(function () { throw e; }); }) : null; }); },
-    needsBootstrap: function () { return ready.then(function () { return S.auth.needsBootstrap(); }).catch(function () { return false; }); },
+    needsBootstrap: function () { return ready.then(function () { return S.auth.needsBootstrap(); }).catch(function () { return 'unknown'; }); },
     signIn: function (u, p) { return ready.then(function () { return S.auth.signIn(u, p); }).then(function (x) { return loadMe(x.uid); })
       .catch(function (e) { var ne = niceErr(e); return S.auth.signOut().catch(function () {}).then(function () { throw ne; }); }); },
     signOut: function () { ME = null; return ready.then(function () { return S.auth.signOut(); }); },

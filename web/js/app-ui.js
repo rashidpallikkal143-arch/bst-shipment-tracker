@@ -52,7 +52,7 @@
     document.querySelectorAll('.ovl').forEach(function (o) { o.style.display = 'none'; });
     $('home').style.display = 'none'; $('login').style.display = 'flex'; $('lg-sign').style.display = ''; $('lg-boot').style.display = 'none';
     $('lg-m').textContent = msg || ''; $('lg-p').value = ''; $('lg-go').disabled = false;
-    B.needsBootstrap().then(function (n) { $('lg-first').style.display = n ? '' : 'none'; if (n && !msg) showBoot(); });
+    B.needsBootstrap().then(function (n) { $('lg-first').style.display = n ? '' : 'none'; if (n === true && !msg) showBoot(); });
     setTimeout(function () { ($('lg-u').value ? $('lg-p') : $('lg-u')).focus(); }, 80);
   }
   function showBoot() { $('lg-sign').style.display = 'none'; $('lg-boot').style.display = ''; setTimeout(function () { $('bt-n').focus(); }, 60); }
