@@ -1,0 +1,76 @@
+rules_version = '2';
+// BST Shipment Tracker: who may read and change what.
+// Paste this whole file into Firebase console > Firestore Database > Rules, then click Publish.
+service cloud.firestore {
+  match /databases/{db}/documents {
+
+    function profile() { return get(/databases/$(db)/documents/users/$(request.auth.uid)).data; }
+    function signedIn() {
+      return request.auth != null
+        && exists(/databases/$(db)/documents/users/$(request.auth.uid))
+        && profile().get('active', true) == true;
+    }
+    function can(r) {
+      return signedIn() && (profile().rights.get('admin', false) == true || profile().rights.get(r, false) == true);
+    }
+    function isAdmin() { return signedIn() && profile().rights.get('admin', false) == true; }
+
+    // first-time setup: marks that the first admin exists
+    match /meta/bootstrap {
+      allow read: if true;
+      allow create: if request.auth != null
+        && !exists(/databases/$(db)/documents/meta/bootstrap)
+        && getAfter(/databases/$(db)/documents/users/$(request.auth.uid)).data.rights.admin == true;
+      allow update, delete: if false;
+    }
+
+    // user profiles and rights
+    match /users/{uid} {
+      allow read: if request.auth != null && (request.auth.uid == uid || can('users'));
+      allow create: if
+        // the very first admin, during first-time setup
+        (request.auth != null && request.auth.uid == uid
+          && !exists(/databases/$(db)/documents/meta/bootstrap)
+          && existsAfter(/databases/$(db)/documents/meta/bootstrap)
+          && request.resource.data.rights.admin == true)
+        // or a user manager adding a person (only a full admin may create a full admin)
+        || (can('users') && (request.resource.data.rights.get('admin', false) != true || isAdmin()));
+      allow update: if can('users')
+        && (request.resource.data.rights.get('admin', false) != true || isAdmin())
+        && !(uid == request.auth.uid && request.resource.data.get('active', true) == false);
+      allow delete: if isAdmin() && uid != request.auth.uid;
+    }
+
+    match /settings/{id} {
+      allow read: if signedIn();
+      allow write: if can('settings') || can('egEdit');   // adding a new Egypt month updates the month list
+    }
+
+    // Egypt containers
+    match /eg/{id} {
+      allow read: if can('egView');
+      allow create, update: if can('egEdit') || can('settings');
+      allow delete: if can('egDel') || can('settings');
+    }
+
+    // Global import shipments
+    match /rx/{id} {
+      allow read: if can('gView');
+      allow create, update: if can('gEdit') || can('settings');
+      allow delete: if can('gDel') || can('settings');
+    }
+
+    // Inspections (sc = 'eg' or 'rx')
+    match /insp/{id} {
+      allow read: if (resource.data.sc == 'eg' && can('egView')) || (resource.data.sc == 'rx' && can('gView'));
+      allow create, update: if can('inspEdit') || can('settings');
+      allow delete: if can('inspEdit') || can('settings');
+    }
+
+    // Matex payments
+    match /matex/{id} {
+      allow read: if can('mxView');
+      allow create, update, delete: if can('mxEdit') || can('settings');
+    }
+  }
+}

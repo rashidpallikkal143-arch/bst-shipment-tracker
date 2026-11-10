@@ -1,0 +1,16 @@
+{
+  "name": "BST Shipment Tracker",
+  "short_name": "BST Tracker",
+  "description": "Baniyas Spike Trading import container and shipment tracking",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#04512c",
+  "theme_color": "#00a651",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

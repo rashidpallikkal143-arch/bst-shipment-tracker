@@ -1,0 +1,10 @@
+{
+  "appId": "com.baniyasspike.bsttracker",
+  "appName": "BST Tracker",
+  "webDir": "www",
+  "server": {
+    "url": "https://rashidpallikkal143-arch.github.io/bst-shipment-tracker/",
+    "androidScheme": "https"
+  },
+  "android": { "backgroundColor": "#04512c" }
+}
