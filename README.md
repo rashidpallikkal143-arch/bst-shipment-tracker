@@ -2,14 +2,14 @@
 
 Import container and shipment tracking for **Baniyas Spike Trading Co. L.L.C.**: Egypt road containers and BST Global import shipments.
 
-- **Website / installable app:** https://rashidpallikkal143-arch.github.io/bst-shipment-tracker/
+- **Website / installable app:** https://bst-shipment-tracker.web.app/
 - **Data:** Firebase (Firestore), protected by personal logins and user rights. No Google Sheets.
 - **Apps:** iPhone / iPad (install from Safari), Android (APK), Windows (installer), Mac (DMG). Get them from the **Releases** page.
 
 ## One-time setup
 
-### 1. Switch on the website (GitHub Pages)
-Repository **Settings → Pages → Build and deployment → Source: GitHub Actions**. The site publishes automatically after every change.
+### 1. Website address
+The app is published to **https://bst-shipment-tracker.web.app** (Firebase Hosting) by the workflow *Publish to Firebase Hosting* after every change. It needs the repository secret `FIREBASE_SERVICE_ACCOUNT` (Firebase console → Project settings → Service accounts → Generate new private key; paste the whole JSON as the secret).
 
 ### 2. Create the Firebase database (free)
 1. Go to https://console.firebase.google.com → **Add project** → name it `bst-shipment-tracker` → Google Analytics off → **Create**.

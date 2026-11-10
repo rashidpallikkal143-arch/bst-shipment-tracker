@@ -3,7 +3,7 @@
 const { app, BrowserWindow, shell } = require('electron');
 const path = require('path');
 
-const APP_URL = 'https://rashidpallikkal143-arch.github.io/bst-shipment-tracker/';
+const APP_URL = 'https://bst-shipment-tracker.web.app/';
 
 const OFFLINE = 'data:text/html;charset=utf-8,' + encodeURIComponent(
   '<html><body style="margin:0;height:100vh;display:flex;align-items:center;justify-content:center;font-family:Segoe UI,Arial,sans-serif;' +

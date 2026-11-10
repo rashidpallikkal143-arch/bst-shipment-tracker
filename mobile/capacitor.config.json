@@ -3,7 +3,7 @@
   "appName": "BST Tracker",
   "webDir": "www",
   "server": {
-    "url": "https://rashidpallikkal143-arch.github.io/bst-shipment-tracker/",
+    "url": "https://bst-shipment-tracker.web.app/",
     "androidScheme": "https"
   },
   "android": { "backgroundColor": "#04512c" }

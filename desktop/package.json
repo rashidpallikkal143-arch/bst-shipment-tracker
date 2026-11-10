@@ -1,7 +1,7 @@
 {
   "name": "bst-shipment-tracker",
   "productName": "BST Shipment Tracker",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Baniyas Spike Trading import container and shipment tracking",
   "author": "Baniyas Spike Trading Co. L.L.C.",
   "license": "UNLICENSED",
@@ -19,11 +19,30 @@
     "appId": "com.baniyasspike.bsttracker",
     "productName": "BST Shipment Tracker",
     "artifactName": "BST-Shipment-Tracker-${os}-${version}.${ext}",
-    "directories": { "output": "dist" },
-    "files": ["main.js", "icon.png"],
-    "win": { "icon": "icon.png" },
-    "nsis": { "oneClick": false, "allowToChangeInstallationDirectory": true, "createDesktopShortcut": true, "createStartMenuShortcut": true, "shortcutName": "BST Shipment Tracker" },
-    "mac": { "icon": "icon.png", "category": "public.app-category.business", "identity": null },
-    "dmg": { "title": "BST Shipment Tracker" }
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "icon.png"
+    ],
+    "win": {
+      "icon": "icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "BST Shipment Tracker"
+    },
+    "mac": {
+      "icon": "icon.png",
+      "category": "public.app-category.business",
+      "identity": null
+    },
+    "dmg": {
+      "title": "BST Shipment Tracker"
+    }
   }
 }

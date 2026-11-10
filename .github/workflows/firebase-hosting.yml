@@ -1,0 +1,30 @@
+# Publishes the web app (folder "web") to https://bst-shipment-tracker.web.app on every change.
+# Needs the repository secret FIREBASE_SERVICE_ACCOUNT (Firebase service account key, JSON).
+name: Publish to Firebase Hosting
+on:
+  push:
+    branches: [main]
+    paths: ['web/**', 'firebase.json', '.github/workflows/firebase-hosting.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+  checks: write
+  pull-requests: write
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check the Firebase key is set
+        id: key
+        env:
+          SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          if [ -z "$SA" ]; then echo "::warning::Add the FIREBASE_SERVICE_ACCOUNT secret to publish to bst-shipment-tracker.web.app"; echo "ok=false" >> "$GITHUB_OUTPUT"; else echo "ok=true" >> "$GITHUB_OUTPUT"; fi
+      - if: steps.key.outputs.ok == 'true'
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          projectId: bst-shipment-tracker
+          channelId: live

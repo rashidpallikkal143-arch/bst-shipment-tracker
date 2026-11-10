@@ -92,7 +92,7 @@ jobs:
           body: |
             Download the file for your device:
             - **Android phone:** BST-Shipment-Tracker-Android.apk
-            - **Windows PC:** BST-Shipment-Tracker-win-….exe
-            - **Mac:** BST-Shipment-Tracker-mac-….dmg
-            - **iPhone / iPad:** open the website in Safari, then Share → Add to Home Screen.
+            - **Windows PC:** BST-Shipment-Tracker-win-1.0.1.exe
+            - **Mac:** BST-Shipment-Tracker-mac-1.0.1.dmg
+            - **iPhone / iPad:** open https://bst-shipment-tracker.web.app in Safari, then Share → Add to Home Screen.
           files: out/*
