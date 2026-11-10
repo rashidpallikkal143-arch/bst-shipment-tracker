@@ -44,6 +44,10 @@ Open the website. It shows **First-time setup**: enter your name, an admin user 
 
 Switching a user **off** blocks them immediately. People change their own password under **👤 My account**.
 
+**Edit a user:** Users & rights → **Edit**. You can change the name, rights and status. Type a **new password** (and, if you like, a **new user ID**) to reset someone's login. The old login stops working at once; their rights and entries stay.
+
+**Delete a user (full admin only):** Edit → **🗑 Delete user…**. The app first lists every entry that person added or changed (Egypt, Global import, inspections, Matex). Tick "I have checked the entries" → **Delete user**. Their entries are kept. You cannot delete yourself.
+
 ## Install the apps
 - **iPhone / iPad:** open the website in **Safari** → Share → **Add to Home Screen**.
 - **Android:** download `BST-Shipment-Tracker-Android.apk` from Releases → open it → allow "install unknown apps". (Or in Chrome: ⋮ → Install app.)

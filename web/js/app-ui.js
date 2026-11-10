@@ -22,6 +22,7 @@
     '.sg{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}.sg label{font-size:12.5px;font-weight:600}.sg textarea{width:100%;min-height:96px;font-size:12.5px}' +
     '.ab{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}.ab button{padding:9px 14px}.mbadge{display:inline-block;margin-left:6px;font-size:11px;font-weight:700;background:#fff4e0;color:#8a5300;border-radius:10px;padding:1px 8px;vertical-align:middle}' +
     'body.m #us-f .g,body.m #ac-pw .g,body.m #st-b .g{grid-template-columns:1fr!important}body.m .rg{grid-template-columns:1fr 1fr}body.m .sg{grid-template-columns:1fr 1fr}#elink,#rlink{display:none!important}' +
+    'button.dg{background:#b3261e!important;color:#fff!important;border-color:#b3261e!important}button.dg:disabled{opacity:.5}.dz{margin-top:12px;border:2px solid #b3261e;border-radius:12px;padding:12px;background:#fff5f4;color:#3a0b08}.dz h3{margin:0 0 6px;color:#b3261e}.dz label.dzk{display:flex!important;flex-direction:row!important;gap:8px;align-items:center;margin:10px 0;font-weight:700;color:#3a0b08;font-size:13.5px}.dz label.dzk input{width:18px!important;height:18px;margin:0;flex:none}.dzl{max-height:220px;overflow:auto;margin:8px 0;padding:6px 8px;background:#fff;border:1px solid #f0c9c5;border-radius:8px;font-size:12.5px;line-height:1.6}' +
     '</style>');
   var logo = ($('logo0') && $('logo0').src) || '';
   document.body.insertAdjacentHTML('beforeend',
@@ -128,22 +129,47 @@
     B.call('listUsers').then(function (l) { USERS = l; drawUsers(); }).catch(function (e) { $('us-l').innerHTML = '<tr><td colspan="5" class="late">' + esc(e.message) + '</td></tr>'; }); }
   function drawUsers() { $('us-l').innerHTML = USERS.map(function (u, i) { return '<tr class="' + (u.active ? '' : 'off') + '"><td><b>' + esc(u.name) + '</b></td><td>' + esc(u.userId) + '</td><td>' + rightsChips(u.rights) + '</td><td>' +
     (u.active ? '<span class="chip cg">Active</span>' : '<span class="chip cr">Switched off</span>') + '</td><td><button type="button" class="sm" data-ued="' + i + '">Edit</button></td></tr>'; }).join('') || '<tr><td colspan="5" class="mu">No users.</td></tr>'; }
-  function userForm(u) { var isNew = !u; u = u || { name: '', userId: '', rights: { egView: true, gView: true }, active: true }; var me = B.me();
+  function userForm(u) { var isNew = !u; u = u || { name: '', userId: '', rights: { egView: true, gView: true }, active: true }; var me = B.me(), self = !isNew && me && u.uid === me.uid;
     $('us-f').style.display = ''; $('us-f').innerHTML = '<h3>' + (isNew ? 'Add a user' : 'Edit ' + esc(u.name)) + '</h3><div class="g" style="grid-template-columns:repeat(3,minmax(0,1fr))">' +
-      '<label>Name<input id="uf-n" value="' + esc(u.name) + '" placeholder="e.g. Abdul Nasar"></label><label>User ID' + (isNew ? '' : ' (cannot change)') + '<input id="uf-u" value="' + esc(u.userId) + '"' + (isNew ? ' placeholder="e.g. nasar"' : ' disabled') + ' autocapitalize="none"></label>' +
+      '<label>Name<input id="uf-n" value="' + esc(u.name) + '" placeholder="e.g. Abdul Nasar"></label><label>User ID (for signing in)<input id="uf-u" value="' + esc(u.userId) + '"' + (isNew ? ' placeholder="e.g. nasar"' : '') + ' autocapitalize="none" autocomplete="off"></label>' +
       (isNew ? '<label>Password (at least 6)<input id="uf-p" type="text" autocomplete="off" placeholder="Give this to the person"></label>' : '<label>Status<select id="uf-a"><option value="1"' + (u.active ? ' selected' : '') + '>Active</option><option value="0"' + (u.active ? '' : ' selected') + '>Switched off (no access)</option></select></label>') +
+      (isNew || self ? '' : '<label>New password<input id="uf-p" type="text" autocomplete="off" placeholder="Leave empty to keep the current one"></label>') +
       '</div><div style="margin-top:10px;font-weight:700;font-size:13px">Rights</div><div class="rg">' + B.rights.map(function (r) { var dis = r[0] === 'admin' && !(me.rights && me.rights.admin);
         return '<label><input type="checkbox" data-r="' + r[0] + '"' + (u.rights && u.rights[r[0]] ? ' checked' : '') + (dis ? ' disabled' : '') + '>' + esc(r[1]) + '</label>'; }).join('') + '</div>' +
       '<div class="mu" style="margin-top:6px">Tip: "add &amp; edit" works best together with "view" of the same section. A full admin has every right.</div>' +
-      (isNew ? '' : '<div class="mu" style="margin-top:6px">To change this person\'s password: switch this user off and create a new user ID, or ask them to use "Change my password" after signing in.</div>') +
-      '<div class="ab"><button class="p" id="uf-s" type="button">' + (isNew ? 'Create user' : 'Save changes') + '</button><button type="button" id="uf-c">Cancel</button><span class="mu" id="uf-m" style="align-self:center"></span></div>';
+      (isNew ? '' : self ? '<div class="mu" style="margin-top:6px">This is you. To change your own user ID or password use "Change my password" in My account.</div>'
+        : '<div class="mu" style="margin-top:6px">Changing the user ID needs a new password too. After saving, give the person the new user ID and password: the old ones stop working. Rights and their entries stay the same.</div>') +
+      '<div class="ab"><button class="p" id="uf-s" type="button">' + (isNew ? 'Create user' : 'Save changes') + '</button><button type="button" id="uf-c">Cancel</button>' +
+      (!isNew && !self && me.rights && me.rights.admin ? '<button type="button" id="uf-d" class="dg" style="margin-left:auto">🗑 Delete user…</button>' : '') +
+      '<span class="mu" id="uf-m" style="align-self:center"></span></div><div id="uf-x"></div>';
     $('uf-c').onclick = function () { $('us-f').style.display = 'none'; };
     $('uf-s').onclick = function () { var r = {}; document.querySelectorAll('#us-f [data-r]').forEach(function (c) { if (c.checked) r[c.dataset.r] = true; });
       $('uf-s').disabled = true; $('uf-m').textContent = 'Saving…';
-      var p = isNew ? B.call('createUser', { name: $('uf-n').value.trim(), userId: $('uf-u').value.trim(), password: $('uf-p').value, rights: r })
-        : B.call('updateUser', { uid: u.uid, name: $('uf-n').value.trim(), rights: r, active: $('uf-a').value === '1' });
-      p.then(function () { $('us-f').style.display = 'none'; if (isNew) alert('User created.\n\nUser ID: ' + $('uf-u').value.trim().toLowerCase() + '\nPassword: ' + $('uf-p').value + '\n\nGive these to the person. They can change the password after signing in.'); openUsers(); })
+      var nid = $('uf-u').value.trim().toLowerCase(), npw = $('uf-p') ? $('uf-p').value : '', login = !isNew && !self && (nid !== u.userId || npw !== '');
+      if (login && nid !== u.userId && !npw) { $('uf-m').textContent = 'Type a new password to go with the new user ID.'; $('uf-s').disabled = false; $('uf-p').focus(); return; }
+      if (login && !confirm('Change the login of ' + u.name + '?\n\nNew user ID: ' + nid + (npw ? '\nNew password: ' + npw : '') + '\n\nThe old ' + (nid !== u.userId ? 'user ID and ' : '') + 'password will stop working.')) { $('uf-m').textContent = ''; $('uf-s').disabled = false; return; }
+      var p = isNew ? B.call('createUser', { name: $('uf-n').value.trim(), userId: nid, password: npw, rights: r })
+        : B.call('updateUser', { uid: u.uid, name: $('uf-n').value.trim(), rights: r, active: $('uf-a').value === '1' })
+          .then(function () { return login ? B.call('resetUserLogin', { uid: u.uid, userId: nid, password: npw }) : null; });
+      p.then(function () { $('us-f').style.display = 'none';
+        if (isNew) alert('User created.\n\nUser ID: ' + nid + '\nPassword: ' + npw + '\n\nGive these to the person. They can change the password after signing in.');
+        else if (login) alert('Login changed for ' + u.name + '.\n\nUser ID: ' + nid + '\nPassword: ' + npw + '\n\nGive these to the person.');
+        openUsers(); })
         .catch(function (e) { $('uf-m').textContent = e.message; $('uf-s').disabled = false; }); };
+    if ($('uf-d')) $('uf-d').onclick = function () { var x = $('uf-x'); $('uf-d').disabled = true; x.innerHTML = '<div class="mu" style="margin-top:10px">Checking the entries made by ' + esc(u.userId) + '…</div>';
+      B.call('userEntries', u.uid).then(function (r) { var c = r.counts, tot = c.eg + c.rx + c.insp + c.matex;
+        x.innerHTML = '<div class="dz"><h3>Delete ' + esc(u.name) + ' (' + esc(u.userId) + ')?</h3>' +
+          '<div>Entries added or last changed by this user: <b>' + tot + '</b> &nbsp; <span class="chip">Egypt ' + c.eg + '</span> <span class="chip">Global import ' + c.rx + '</span> <span class="chip">Inspections ' + c.insp + '</span> <span class="chip">Matex ' + c.matex + '</span></div>' +
+          (tot ? '<div class="dzl">' + r.list.slice(0, 200).map(function (t) { return '<div>' + esc(t) + '</div>'; }).join('') + (r.list.length > 200 ? '<div class="mu">… and ' + (r.list.length - 200) + ' more</div>' : '') + '</div>' : '<div class="mu" style="margin:6px 0">No entries found for this user.</div>') +
+          '<div class="mu">Deleting removes the user ID and its rights. The person can no longer sign in. Their entries above are <b>kept</b>. To block someone for a while instead, set Status to "Switched off".</div>' +
+          '<label class="dzk"><input type="checkbox" id="uf-dk">I have checked the entries above and want to delete this user</label>' +
+          '<div class="ab"><button type="button" class="dg" id="uf-dy" disabled>Delete user</button><button type="button" id="uf-dn">Keep user</button><span class="mu" id="uf-dm"></span></div></div>';
+        $('uf-dk').onchange = function () { $('uf-dy').disabled = !this.checked; };
+        $('uf-dn').onclick = function () { x.innerHTML = ''; $('uf-d').disabled = false; };
+        $('uf-dy').onclick = function () { $('uf-dy').disabled = true; $('uf-dm').textContent = 'Deleting…';
+          B.call('deleteUser', u.uid).then(function () { alert(u.name + ' (' + u.userId + ') was deleted.'); openUsers(); }).catch(function (e) { $('uf-dm').textContent = e.message; $('uf-dy').disabled = false; }); };
+        x.scrollIntoView({ block: 'nearest' });
+      }).catch(function (e) { x.innerHTML = '<div class="late" style="margin-top:8px">' + esc(e.message) + '</div>'; $('uf-d').disabled = false; }); };
     setTimeout(function () { (isNew ? $('uf-n') : $('uf-n')).focus(); }, 50); }
   $('us-add').onclick = function () { userForm(null); };
   $('us-l').addEventListener('click', function (e) { var b = e.target.closest('[data-ued]'); if (b) userForm(USERS[+b.dataset.ued]); });

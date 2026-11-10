@@ -78,6 +78,8 @@
   var rxKey = function (o) { var inv = String(o.invoice || '').split(/\s*[,;\n]\s*/)[0].trim(); return inv || o.po || o.pi || o.refId || ''; };
   var userEmail = function (uid) { uid = String(uid || '').trim().toLowerCase(); return uid.indexOf('@') >= 0 ? uid : uid + '@' + DOMAIN; };
   var err = function (m) { return new Error(m); };
+  var cleanId = function (u) { return String(u || '').trim().toLowerCase(); };
+  var ID_OK = /^[a-z0-9._-]{3,40}$/, ID_MSG = 'User ID: 3 to 40 characters, letters, numbers, dot, dash or underscore only.';
   function niceErr(e) {
     var c = (e && e.code) || '', m = (e && e.message) || String(e);
     if (/permission/i.test(c + m)) return err('You do not have permission for this. Ask your admin to give you the right.');
@@ -167,6 +169,7 @@
     d.rx = Object.assign({}, DEFAULT_SETTINGS.rx, d.rx || {}); d.egLists = Object.assign({}, DEFAULT_SETTINGS.egLists, d.egLists || {}); d.track = d.track || DEFAULT_SETTINGS.track; SET = d; return d; }); }
   function loadMe(uid) { return S.db.get('users', uid).then(function (u) {
     if (!u) throw err('This login has no user profile. Ask your admin to set up your user ID.');
+    if (u.archived) throw err('The admin has changed this login. Ask them for your new user ID and password.');
     if (u.active === false) throw err('This user ID has been switched off by the admin.');
     ME = Object.assign({ uid: uid }, u); ME.rights = ME.rights || {}; return loadSettings().then(function () { return ME; }); }); }
 
@@ -201,6 +204,7 @@
       var data = {}; v.updated = today();
       EG_KEYS.forEach(function (k) { if (v[k] === undefined || v[k] === null) return; data[k] = EG_NUM[k] && v[k] !== '' ? Number(v[k]) : s_(v[k]); });
       if (o.row) { var cur = docs.filter(function (d) { return d._id === o.row; })[0]; if (!cur) throw err('This entry was deleted meanwhile. Click Refresh.');
+        data.updatedBy = ME.userId || '';
         return S.db.merge('eg', o.row, data).then(function () { return { row: o.row, month: cur.month }; }); }
       var mx = 0; docs.forEach(function (d) { if (d.month === o.month && Number(d.sr) > mx) mx = Number(d.sr); });
       if (!data.sr) data.sr = mx + 1; data.month = o.month; data.created = new Date().toISOString(); data.by = ME.userId || '';
@@ -230,7 +234,7 @@
       data.items = (s.items || []).filter(function (i) { return i.desc || i.qty; }).map(function (i) { return { desc: s_(i.desc), qty: s_(i.qty), unit: s_(i.unit), remarks: s_(i.remarks), inv: s_(i.inv) }; });
       data.containers = (s.containers || []).filter(function (c) { return String(c.no || '').trim(); }).map(function (c) { return { no: s_(c.no).trim(), size: s_(c.size), seal: s_(c.seal), remarks: s_(c.remarks) }; });
       data.updated = today(); data.by = ME.userId || '';
-      var id = cur ? cur._id : genId('S'); if (!cur) data.created = new Date().toISOString();
+      var id = cur ? cur._id : genId('S'); if (!cur) { data.created = new Date().toISOString(); data.createdBy = ME.userId || ''; } else { data.created = cur.created || ''; data.createdBy = cur.createdBy || cur.by || ''; }
       return S.db.set('rx', id, data).then(function () { return newKey; }); }); };
   API.advanceStage = function (key) { need('gEdit'); return Promise.all([loadSettings(), S.db.all('rx')]).then(function (x) {
     var cur = findRx(x[1], key); if (!cur) throw err('Shipment not found');
@@ -248,7 +252,7 @@
   API.saveTabRow = function (kind, rec) { var t = TAB[kind]; if (!t) throw err('Unknown table: ' + kind); need(t.edit);
     if (t.sc && !String(rec.invoice || '').trim()) throw err('Invoice number is required for an inspection record');
     var id = rec.id || genId('R'), data = {}; t.keys.forEach(function (k) { if (rec[k] !== undefined) data[k] = (k === 'amount' || k === 'paid') && rec[k] !== '' ? Number(rec[k]) : s_(rec[k]); });
-    data.id = id; data.updated = today(); if (t.sc) { data.sc = t.sc; data.by = ME.userId || ''; }
+    data.id = id; data.updated = today(); data.by = ME.userId || ''; if (t.sc) data.sc = t.sc;
     return S.db.set(t.col, id, data).then(function () { return id; }); };
   API.deleteTabRow = function (kind, id) { var t = TAB[kind]; if (!t) throw err('Unknown table: ' + kind); need(t.edit); return S.db.del(t.col, id).then(function () { return true; }); };
 
@@ -258,22 +262,59 @@
   API.getVesselLive = function () { return { configured: false, data: {} }; };
 
   // ------------------------------------------------------------------ users (admin)
-  API.listUsers = function () { need('users'); return S.db.all('users').then(function (l) { return l.map(function (u) { return { uid: u._id, name: s_(u.name), userId: s_(u.userId), rights: u.rights || {}, active: u.active !== false, created: s_(u.created) }; })
+  API.listUsers = function () { need('users'); return S.db.all('users').then(function (l) { return l.filter(function (u) { return !u.archived; }).map(function (u) { return { uid: u._id, name: s_(u.name), userId: s_(u.userId), rights: u.rights || {}, active: u.active !== false, created: s_(u.created) }; })
     .sort(function (a, b) { return a.userId.localeCompare(b.userId); }); }); };
-  API.createUser = function (o) { need('users'); var id = String(o.userId || '').trim().toLowerCase();
-    if (!/^[a-z0-9._@-]{3,40}$/.test(id)) throw err('User ID: 3 to 40 characters, letters, numbers, dot, dash or underscore only.');
+  function loginOf(id) { id = cleanId(id); return S.db.get('logins', id).then(function (d) { return d && d.email ? d.email : userEmail(id); }).catch(function () { return userEmail(id); }); }
+  function idTaken(id, exceptUid) { return S.db.all('users').then(function (l) { return l.some(function (u) { return !u.archived && u.userId === id && u._id !== exceptUid; }); }); }
+  // creates a Firebase login; if the plain login name was used before (e.g. by a deleted user), a fresh one is made
+  function newLogin(id, pw) { var e0 = userEmail(id);
+    return S.auth.createUser(e0, pw).then(function (uid) { return { uid: uid, email: e0 }; }, function (e) {
+      if (!/already|exists/i.test((e && (e.code || e.message)) || '')) throw e;
+      var e1 = id + '.r' + Date.now().toString(36) + '@' + DOMAIN; return S.auth.createUser(e1, pw).then(function (uid) { return { uid: uid, email: e1 }; }); }); }
+  API.createUser = function (o) { need('users'); var id = cleanId(o.userId);
+    if (!ID_OK.test(id)) throw err(ID_MSG);
     if (String(o.password || '').length < 6) throw err('The password must have at least 6 characters.');
     if (o.rights && o.rights.admin && !can('admin')) throw err('Only a full admin can create another full admin.');
-    return S.db.all('users').then(function (l) { if (l.some(function (u) { return u.userId === id; })) throw err('This user ID already exists.');
-      return S.auth.createUser(id, o.password); }).then(function (uid) {
-      return S.db.set('users', uid, { name: s_(o.name) || id, userId: id, rights: o.rights || {}, active: true, created: new Date().toISOString(), createdBy: ME.userId || '' }).then(function () { return uid; }); }); };
+    return idTaken(id).then(function (t) { if (t) throw err('This user ID already exists.'); return newLogin(id, o.password); }).then(function (L) {
+      return S.db.batch([{ op: 'set', col: 'users', id: L.uid, data: { name: s_(o.name) || id, userId: id, email: L.email, rights: o.rights || {}, active: true, created: new Date().toISOString(), createdBy: ME.userId || '' } },
+        { op: 'set', col: 'logins', id: id, data: { email: L.email } }]).then(function () { return L.uid; }); }); };
+  // admin sets a new password and/or a new user ID for someone: a new login replaces the old one; rights, history and entries stay
+  API.resetUserLogin = function (o) { need('users'); var pw = String(o.password || '');
+    if (o.uid === ME.uid) throw err('To change your own password use "Change my password".');
+    if (pw.length < 6) throw err('The new password must have at least 6 characters.');
+    return S.db.get('users', o.uid).then(function (u) { if (!u || u.archived) throw err('This user no longer exists. Close and open Users again.');
+      if (u.rights && u.rights.admin && !can('admin')) throw err('Only a full admin can change another full admin\'s login.');
+      var oldId = u.userId, id = cleanId(o.userId || oldId); if (!ID_OK.test(id)) throw err(ID_MSG);
+      return (id !== oldId ? idTaken(id, o.uid) : Promise.resolve(false)).then(function (t) { if (t) throw err('This user ID already exists.');
+        var e = id + '.v' + Date.now().toString(36) + '@' + DOMAIN; return S.auth.createUser(e, pw).then(function (uid) { return { uid: uid, email: e }; }); })
+        .then(function (L) { var prof = strip(u); delete prof.replacedBy; delete prof.archived;
+          prof.userId = id; prof.email = L.email; prof.active = u.active !== false; prof.loginChanged = new Date().toISOString(); prof.loginChangedBy = ME.userId || ''; if (id !== oldId) prof.oldUserIds = (u.oldUserIds || []).concat([oldId]);
+          var ops = [{ op: 'set', col: 'users', id: L.uid, data: prof }, { op: 'merge', col: 'users', id: o.uid, data: { active: false, archived: true, replacedBy: L.uid, updated: new Date().toISOString() } },
+            { op: 'set', col: 'logins', id: id, data: { email: L.email } }];
+          if (id !== oldId) ops.push({ op: 'del', col: 'logins', id: oldId });
+          return S.db.batch(ops).then(function () { return { uid: L.uid, userId: id }; }); }); }); };
+  // what a person entered or changed, so the admin can check before deleting them
+  API.userEntries = function (uid) { need('users'); return S.db.get('users', uid).then(function (u) { if (!u) throw err('User not found.');
+    var ids = [u.userId].concat(u.oldUserIds || []), mine = function (d) { return [d.by, d.createdBy, d.updatedBy].some(function (x) { return x && ids.indexOf(x) >= 0; }); };
+    var safe = function (col, r) { return can(r) ? S.db.all(col).catch(function () { return []; }) : Promise.resolve([]); };
+    return Promise.all([safe('eg', 'egView'), safe('rx', 'gView'), can('egView') ? S.db.all('insp', 'sc', 'eg').catch(function () { return []; }) : [], can('gView') ? S.db.all('insp', 'sc', 'rx').catch(function () { return []; }) : [], safe('matex', 'mxView')])
+      .then(function (x) { var eg = x[0].filter(mine), rx = x[1].filter(mine), insp = x[2].concat(x[3]).filter(mine), mx = x[4].filter(mine);
+        return { userId: u.userId, name: u.name, counts: { eg: eg.length, rx: rx.length, insp: insp.length, matex: mx.length },
+          list: eg.map(function (d) { return 'Egypt · ' + (d.month || '') + ' SR ' + (d.sr || '') + ' · INV ' + (d.inv || '-') + (d.container ? ' · ' + d.container : ''); })
+            .concat(rx.map(function (d) { var o = {}; RX_KEYS.forEach(function (k) { o[k] = s_(d[k]); }); return 'Global · ' + rxKey(o) + (d.supplier ? ' · ' + d.supplier : ''); }))
+            .concat(insp.map(function (d) { return 'Inspection · ' + (d.ref || '') + ' · ' + (d.status || ''); }))
+            .concat(mx.map(function (d) { return 'Matex · ' + (d.inv || d.id) + (d.container ? ' · ' + d.container : ''); })) }; }); }); };
+  API.deleteUser = function (uid) { if (!can('admin')) throw err('Only a full admin can delete users.'); if (uid === ME.uid) throw err('You cannot delete your own user ID.');
+    return S.db.get('users', uid).then(function (u) { if (!u) return true; var ops = [{ op: 'del', col: 'users', id: uid }];
+      return S.db.get('logins', u.userId).catch(function () { return null; }).then(function (l) { if (l && (!u.email || l.email === u.email)) ops.push({ op: 'del', col: 'logins', id: u.userId });
+        return S.db.batch(ops); }).then(function () { return true; }); }); };
   API.updateUser = function (o) { need('users'); if (o.uid === ME.uid && o.rights && !o.rights.admin && ME.rights.admin) throw err('You cannot remove your own full-admin right.');
     if (o.uid === ME.uid && o.active === false) throw err('You cannot switch off your own user ID.');
     if (o.rights && o.rights.admin && !can('admin')) throw err('Only a full admin can give full-admin rights.');
     var up = {}; ['name', 'rights', 'active'].forEach(function (k) { if (o[k] !== undefined) up[k] = o[k]; }); up.updated = new Date().toISOString();
     return S.db.merge('users', o.uid, up).then(function () { return true; }); };
   API.changeMyPassword = function (oldP, newP) { if (!ME) throw err('Sign in first.'); if (String(newP).length < 6) throw err('The password must have at least 6 characters.');
-    return S.auth.changePassword(ME.userId, oldP, newP).then(function () { return true; }); };
+    return S.auth.changePassword(ME.email || userEmail(ME.userId), oldP, newP).then(function () { return true; }); };
 
   // ------------------------------------------------------------------ settings, import, backup
   API.getSettings = function () { if (!ME) throw err('Sign in first.'); return loadSettings(); };
@@ -315,14 +356,15 @@
     me: function () { return ME; }, can: can, settings: function () { return SET; },
     start: function () { return ready.then(function () { return S.auth.current(); }).then(function (u) { return u ? loadMe(u.uid).catch(function (e) { return S.auth.signOut().then(function () { throw e; }); }) : null; }); },
     needsBootstrap: function () { return ready.then(function () { return S.auth.needsBootstrap(); }).catch(function () { return 'unknown'; }); },
-    signIn: function (u, p) { return ready.then(function () { return S.auth.signIn(u, p); }).then(function (x) { return loadMe(x.uid); })
+    signIn: function (u, p) { return ready.then(function () { return loginOf(u); }).then(function (e) { return S.auth.signIn(e, p); }).then(function (x) { return loadMe(x.uid); })
       .catch(function (e) { var ne = niceErr(e); return S.auth.signOut().catch(function () {}).then(function () { throw ne; }); }); },
     signOut: function () { ME = null; return ready.then(function () { return S.auth.signOut(); }); },
     bootstrap: function (name, u, p) { u = String(u || '').trim().toLowerCase();
-      if (!/^[a-z0-9._@-]{3,40}$/.test(u)) return Promise.reject(err('User ID: 3 to 40 characters, letters, numbers, dot, dash or underscore only.'));
+      if (!ID_OK.test(u)) return Promise.reject(err(ID_MSG));
       if (String(p || '').length < 6) return Promise.reject(err('The password must have at least 6 characters.'));
-      return ready.then(function () { return S.auth.needsBootstrap(); }).then(function (n) { if (!n) throw err('The first admin already exists. Sign in instead.'); return S.auth.bootstrapSignIn(u, p); })
-        .then(function (x) { return S.db.batch([{ op: 'set', col: 'users', id: x.uid, data: { name: name || u, userId: u, rights: { admin: true }, active: true, created: new Date().toISOString() } },
+      return ready.then(function () { return S.auth.needsBootstrap(); }).then(function (n) { if (!n) throw err('The first admin already exists. Sign in instead.'); return S.auth.bootstrapSignIn(userEmail(u), p); })
+        .then(function (x) { return S.db.batch([{ op: 'set', col: 'users', id: x.uid, data: { name: name || u, userId: u, email: userEmail(u), rights: { admin: true }, active: true, created: new Date().toISOString() } },
+          { op: 'set', col: 'logins', id: u, data: { email: userEmail(u) } },
           { op: 'set', col: 'meta', id: 'bootstrap', data: { by: x.uid, at: new Date().toISOString() } }]).then(function () { return loadMe(x.uid); }); }).catch(function (e) { throw niceErr(e); }); },
     call: function (name) { var a = [].slice.call(arguments, 1); return ready.then(function () { if (!API[name]) throw err('Unknown function ' + name); return API[name].apply(null, a); }).catch(function (e) { throw niceErr(e); }); }
   };
