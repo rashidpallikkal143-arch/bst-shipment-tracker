@@ -28,6 +28,7 @@ async function main() {
   out.users = await all(collection(db, 'users'), 'users').catch(e => { console.log('Note: users not included (' + e.message + ')'); return []; });
   out.activity = await all(collection(db, 'activity'), 'activity').catch(e => { console.log('Note: activity history not included (' + e.message + ')'); return []; });
   fs.writeFileSync(OUT, JSON.stringify(out, null, 1));
+  fs.writeFileSync('summary.txt', `Egypt ${out.eg.length} · Global import ${out.rx.length} · inspections ${out.insp.length} · Matex ${out.matex.length} · users ${out.users.length}`);
   console.log(`Backup ready: Egypt ${out.eg.length} · Global import ${out.rx.length} · inspections ${out.insp.length} · Matex ${out.matex.length} · users ${out.users.length} · history lines ${out.activity.length}`);
 }
 main().then(() => process.exit(0), e => { console.error('Backup failed while ' + e.message); process.exit(1); });

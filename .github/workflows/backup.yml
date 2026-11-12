@@ -38,6 +38,20 @@ jobs:
           rm -f "$NAME.json"
           echo "name=$NAME" >> "$GITHUB_OUTPUT"
           ls -la "$NAME.zip"
+      - name: Send to the company Google Drive / email
+        if: steps.enc.outputs.skip != '1'
+        working-directory: tools/backup
+        env:
+          DRIVE_URL: ${{ secrets.BACKUP_DRIVE_URL }}
+          DRIVE_SECRET: ${{ secrets.BACKUP_DRIVE_SECRET }}
+          NAME: ${{ steps.enc.outputs.name }}
+        run: |
+          if [ -z "$DRIVE_URL" ]; then echo "Company Google Drive not set up (secret BACKUP_DRIVE_URL) - backup kept on GitHub only."; exit 0; fi
+          node -e 'const fs=require("fs");const n=process.env.NAME;fs.writeFileSync("payload.json",JSON.stringify({secret:process.env.DRIVE_SECRET,name:n,summary:fs.existsSync("summary.txt")?fs.readFileSync("summary.txt","utf8"):"",data:fs.readFileSync(n+".zip").toString("base64")}))'
+          ANS=$(curl -sS -L --max-time 240 -H "Content-Type: application/json" --data-binary @payload.json "$DRIVE_URL")
+          rm -f payload.json
+          echo "Answer: $(echo "$ANS" | head -c 300)"
+          echo "$ANS" | grep -q '"ok":true' || { echo "::error::The company Google Drive did not accept the backup (see answer above). The backup is still kept on GitHub."; exit 1; }
       - name: Keep for 90 days
         if: steps.enc.outputs.skip != '1'
         uses: actions/upload-artifact@v4

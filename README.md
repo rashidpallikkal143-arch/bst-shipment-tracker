@@ -77,6 +77,8 @@ Setup once:
 2. GitHub → **Settings → Secrets and variables → Actions**: add `BACKUP_BOT_PASSWORD` (the backup-bot password) and `BACKUP_PASSWORD` (a new password that locks the backup files; keep it safe).
 3. Publish the latest `firestore.rules` in Firebase.
 
+Copy to the company Google account (Drive folder + optional email): create an Apps Script project there with [`tools/backup/BackupReceiver.gs`](tools/backup/BackupReceiver.gs), deploy it as a web app (Execute as: Me, Who has access: Anyone), then add the GitHub secrets `BACKUP_DRIVE_URL` (the web app URL) and `BACKUP_DRIVE_SECRET` (the same secret as in the script).
+
 To restore: GitHub → **Actions → Daily backup** → open a run → **Artifacts** → download → open the zip with **7-Zip** and `BACKUP_PASSWORD` → in the app **Settings, import & backup → Import data** → choose the `.json` file (tick "replace" to go back to exactly that day).
 
 ## Backups
