@@ -22,14 +22,18 @@ const km = (a, b) => { const R = Math.PI / 180, x = (b[1] - a[1]) * R * Math.cos
 async function main() {
   const lg = await getDoc(doc(db, 'logins', BOT)).catch(() => null);
   const email = lg && lg.exists() && lg.data().email ? lg.data().email : BOT + '@' + DOMAIN;
-  await signInWithEmailAndPassword(getAuth(app), email, PW);
+  let step = 'signing in as ' + BOT;
+  const fail = e => { e.step = step; throw e; };
+  await signInWithEmailAndPassword(getAuth(app), email, PW).catch(fail);
 
   // open shipments with a ship number
   const seen = new Map();
-  for (const f of ['mmsi', 'imo']) (await getDocs(query(collection(db, 'rx'), where(f, '>', '')))).forEach(d => seen.set(d.id, d.data()));
+  step = 'reading shipments (ais-bot needs the right "Global import: view")';
+  for (const f of ['mmsi', 'imo']) (await getDocs(query(collection(db, 'rx'), where(f, '>', ''))).catch(fail)).forEach(d => seen.set(d.id, d.data()));
   const ships = [...seen.values()].filter(s => !isDone(s)).map(s => ({ mmsi: String(s.mmsi || '').replace(/\D/g, ''), imo: String(s.imo || '').replace(/\D/g, ''), name: s.vessel || '' }))
     .filter(s => /^\d{9}$/.test(s.mmsi) || /^\d{7}$/.test(s.imo));
-  const vdocs = new Map(); (await getDocs(collection(db, 'vessels'))).forEach(d => vdocs.set(d.id, d.data()));
+  step = 'reading saved ship positions (publish the latest firestore.rules in Firebase)';
+  const vdocs = new Map(); (await getDocs(collection(db, 'vessels')).catch(fail)).forEach(d => vdocs.set(d.id, d.data()));
   const imoToMmsi = {}; vdocs.forEach((v, id) => { if (v.imo) imoToMmsi[v.imo] = id; });
   const want = new Map();                       // mmsi -> {imo, name}
   const unknownImo = new Set();
@@ -84,4 +88,4 @@ async function main() {
   for (const [id, v] of vdocs) if (!want.has(id) && !(v.imo && [...unknownImo].includes(v.imo)) && Date.now() - Date.parse(v.checked || 0) > 30 * 864e5) await deleteDoc(doc(db, 'vessels', id)).catch(() => {});
   console.log(`Saved ${saved} ship(s).`);
 }
-main().then(() => process.exit(0), e => { console.error('Live ship tracking failed:', e && (e.code || e.message) || e); process.exit(1); });
+main().then(() => process.exit(0), e => { console.error('Live ship tracking failed while ' + (e && e.step || 'saving') + ':', e && (e.code || e.message) || e); process.exit(1); });
