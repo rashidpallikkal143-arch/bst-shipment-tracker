@@ -1,0 +1,7 @@
+{
+  "name": "bst-ais-feed",
+  "private": true,
+  "type": "module",
+  "description": "Collects live ship positions from aisstream.io for open shipments and saves them in Firebase",
+  "dependencies": { "firebase": "10.12.2" }
+}

@@ -57,6 +57,12 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    // live ship positions, written every ~15 minutes by the GitHub job that signs in as the user "ais-bot"
+    match /vessels/{id} {
+      allow read: if can('gView');
+      allow write: if signedIn() && profile().userId == 'ais-bot';
+    }
+
     match /settings/{id} {
       allow read: if signedIn();
       allow write: if can('settings') || can('egEdit');   // adding a new Egypt month updates the month list

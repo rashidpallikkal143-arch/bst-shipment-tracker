@@ -1,0 +1,30 @@
+name: Live ship positions
+# Every ~15 minutes: collects live positions (aisstream.io) for open shipments that have an MMSI or IMO number
+# and saves them in Firebase for the tracker map. Needs the secrets AISSTREAM_KEY and AIS_BOT_PASSWORD.
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+concurrency:
+  group: vessels
+  cancel-in-progress: false
+jobs:
+  positions:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install
+        working-directory: tools/ais
+        run: npm install --no-audit --no-fund
+      - name: Collect positions
+        working-directory: tools/ais
+        env:
+          AISSTREAM_KEY: ${{ secrets.AISSTREAM_KEY }}
+          AIS_BOT_PASSWORD: ${{ secrets.AIS_BOT_PASSWORD }}
+          AIS_BOT_ID: ais-bot
+          LISTEN_SECONDS: '300'
+        run: node ais.mjs

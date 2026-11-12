@@ -236,7 +236,7 @@
       (d.items || []).forEach(function (i) { items.push({ invoice: o.key, desc: s_(i.desc), qty: s_(i.qty), unit: s_(i.unit), remarks: s_(i.remarks), inv: s_(i.inv) }); });
       (d.containers || []).forEach(function (c) { containers.push({ key: o.key, no: s_(c.no), size: s_(c.size), seal: s_(c.seal), remarks: s_(c.remarks) }); }); });
     var r = SET.rx;
-    return { track: SET.track, liveApi: false, stages: r.stages, sizes: r.sizes, units: r.units, payments: r.payments, shipments: shipments, items: items, containers: containers, today: today(), url: '' }; }); };
+    return { track: SET.track, liveApi: true, stages: r.stages, sizes: r.sizes, units: r.units, payments: r.payments, shipments: shipments, items: items, containers: containers, today: today(), url: '' }; }); };
   function findRx(docs, key) { return docs.filter(function (d) { var o = {}; RX_KEYS.forEach(function (k) { o[k] = s_(d[k]); }); return key && rxKey(o) === String(key); })[0] || null; }
   API.saveShipment = function (s, oldKey) { need('gEdit');
     if (!String(s.invoice || '').trim() && !s.po && !s.pi && !s.refId) { var t = new Date(); s.refId = 'BST-' + t.toISOString().slice(2, 10).replace(/-/g, '') + '-' + t.toTimeString().slice(0, 8).replace(/:/g, ''); }
@@ -274,7 +274,16 @@
   // ------------------------------------------------------------------ old password checks (now: rights of the signed-in user)
   API.checkViewer = function () { return ME ? (can('admin') ? 'admin' : 'viewer') : ''; };
   API.checkAdmin = function () { var sec = window.CURSEC; return sec === 'eg' ? can('egEdit') : sec === 'rx' ? can('gEdit') : can('admin'); };
-  API.getVesselLive = function () { return { configured: false, data: {} }; };
+  // live ship positions (saved by the ais-bot job). keys: IMO numbers, or 'M' + MMSI for ships without IMO
+  API.getVesselLive = function (keys) { need('gView'); keys = (keys || []).map(String);
+    return S.db.all('vessels').then(function (l) { var out = {};
+      l.forEach(function (v) { var k = keys.indexOf(String(v.imo || '')) >= 0 ? String(v.imo) : keys.indexOf('M' + (v.mmsi || v._id)) >= 0 ? 'M' + (v.mmsi || v._id) : '';
+        if (!k || !isFinite(v.lat) || v.lat === null) return;
+        out[k] = { imo: v.imo || '', mmsi: v.mmsi || v._id, name: v.name || '', lat: Number(v.lat), lon: Number(v.lon), speed: v.speed, course: v.course, heading: v.heading, navstat: v.navstat,
+          dest: v.dest || '', eta: v.eta || '', ts: v.ts || '', checked: v.checked || '', track: (v.track || []).slice(-300) }; });
+      var miss = keys.filter(function (k) { return !out[k]; });
+      return { configured: true, data: out, error: miss.length ? 'no live position received yet (checked about every 15 minutes; ships far out at sea can be out of range for a while)' : '' }; })
+      .catch(function (e) { return { configured: true, data: {}, error: /permission/i.test(e.message || e.code || '') ? 'publish the latest database rules in Firebase to see live positions' : 'live positions not available right now' }; }); };
 
   // ------------------------------------------------------------------ users (admin)
   API.listUsers = function () { need('users'); return S.db.all('users').then(function (l) { return l.filter(function (u) { return !u.archived; }).map(function (u) { return { uid: u._id, name: s_(u.name), userId: s_(u.userId), rights: u.rights || {}, active: u.active !== false, created: s_(u.created) }; })

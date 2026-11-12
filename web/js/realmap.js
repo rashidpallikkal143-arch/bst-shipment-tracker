@@ -161,16 +161,54 @@
     LABS.slice().sort(function (a, b) { return a.pr - b.pr; }).forEach(function (o) { var t = o.m.getTooltip(), el = t && t.getElement(); if (!el) return;
       var p = map.latLngToContainerPoint(o.m.getLatLng()), hit = shown.some(function (q) { return Math.abs(q.x - p.x) < 150 && Math.abs(q.y - p.y) < 34; });
       el.style.visibility = hit ? 'hidden' : ''; if (!hit) shown.push(p); }); }
+  // ------------------------------------------------------------ live ship helpers
+  var follow = false, liveTimer = 0, liveCtl = null;
+  try { follow = localStorage.getItem('bst_map_follow') === '1'; } catch (e) {}
+  var NAV = { 0: 'Under way', 1: 'At anchor', 2: 'Not under command', 3: 'Restricted manoeuvrability', 4: 'Constrained by draught', 5: 'Moored', 6: 'Aground', 7: 'Fishing', 8: 'Under way (sailing)' };
+  function when(ts) { var d = new Date(ts); if (isNaN(d)) return ''; var mi = Math.round((Date.now() - d) / 6e4);
+    return d.toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) + ' (' + (mi < 1 ? 'just now' : mi < 60 ? mi + ' min ago' : mi < 1440 ? Math.round(mi / 60) + ' h ago' : Math.round(mi / 1440) + ' days ago') + ')'; }
+  function shipSvg(c) { var r = isFinite(c) && c !== null ? Number(c) : 0;
+    return '<svg viewBox="0 0 24 24" width="24" height="24" style="transform:rotate(' + r + 'deg)"><path d="M12 1.5 L17.5 19 L12 15.5 L6.5 19 Z" fill="#16a34a" stroke="#fff" stroke-width="1.6" stroke-linejoin="round"/></svg>'; }
+  function estimate(lv) { var age = (Date.now() - new Date(lv.ts)) / 36e5, sp = Number(lv.speed), c = Number(lv.course);
+    if (!(age > 0 && age < 2 && sp > 0.5 && isFinite(c) && lv.course !== null)) return { pt: [lv.lat, lv.lon], est: false };
+    var d = sp * age / 60, R = Math.PI / 180;           // degrees of latitude travelled
+    return { pt: [lv.lat + d * Math.cos(c * R), lv.lon + d * Math.sin(c * R) / Math.max(0.2, Math.cos(lv.lat * R))], est: true }; }
+  function liveBox(L, m, lv, rr) {
+    if (liveCtl) { liveCtl.remove(); liveCtl = null; }
+    var x = rr && rr.x; if (!x || x.sc === 'eg' || !(window.TR && TR.sc === 'rx')) return;
+    var Ctl = L.Control.extend({ options: { position: 'bottomleft' }, onAdd: function () { var d = L.DomUtil.create('div', 'rm-live'); L.DomEvent.disableClickPropagation(d); L.DomEvent.disableScrollPropagation(d);
+      if (!lv) { d.innerHTML = '<b>🚢 ' + esc(x.vessel || 'Vessel') + '</b><div class="mu">' + (window.vk && vk(x) ? 'No live position yet. Positions are checked about every 15 minutes; far out at sea a ship can be out of range for a while.' : 'Add the vessel <b>MMSI</b> (or IMO) number to this shipment to see the ship live here.') + '</div>'; return d; }
+      d.innerHTML = '<div class="rm-lh"><b>🚢 ' + esc(lv.name || x.vessel || 'Vessel') + '</b><span class="rm-dot"></span><span class="rm-ago">Live AIS</span></div>' +
+        '<div class="rm-kv"><span>Speed</span><b>' + (lv.speed != null ? esc(lv.speed) + ' kn' : '-') + '</b><span>Course</span><b>' + (lv.course != null ? Math.round(lv.course) + '°' : '-') + '</b>' +
+        '<span>Status</span><b>' + esc(NAV[lv.navstat] || '-') + '</b><span>Destination</span><b>' + esc(lv.dest || '-') + '</b><span>AIS ETA</span><b>' + esc(lv.eta || '-') + '</b>' +
+        '<span>Position</span><b>' + lv.lat.toFixed(4) + ', ' + lv.lon.toFixed(4) + '</b><span>Received</span><b>' + esc(when(lv.ts)) + '</b></div>' +
+        '<div class="rm-est" id="rm-est"></div><label class="rm-fl"><input type="checkbox" id="rm-follow"' + (follow ? ' checked' : '') + '> Follow the ship</label>' +
+        '<div class="mu" style="font-size:11px">MMSI ' + esc(lv.mmsi) + (lv.imo ? ' · IMO ' + esc(lv.imo) : '') + ' · refreshes by itself</div>';
+      setTimeout(function () { var f = document.getElementById('rm-follow'); if (f) f.onchange = function () { follow = this.checked; try { localStorage.setItem('bst_map_follow', follow ? '1' : '0'); } catch (e) {} if (follow) m.setView(estimate(lv).pt, Math.max(m.getZoom(), 8)); }; }, 0);
+      return d; } });
+    liveCtl = new Ctl(); liveCtl.addTo(m);
+  }
+  // fresh positions every minute while the map is open
+  setInterval(function () { var el = document.getElementById('tr-real'), ov = document.getElementById('ovtr');
+    if (!el || el.style.display === 'none' || !ov || ov.style.display !== 'block' || !window.TR || TR.sc !== 'rx' || typeof vlFetch !== 'function') return;
+    vlFetch(TR.list.slice(0, 40).map(function (r) { return r.x; }), function () { window.rmDraw(); }); }, 60000);
+
   window.rmDraw = function (force) {
     var el = document.getElementById('tr-real'); if (!el || el.style.display === 'none') return;
     var sc = typeof trScene === 'function' ? trScene() : null;
     var h = Math.max(340, Math.round(window.innerHeight * (document.body.classList.contains('m') ? 0.6 : 0.62)));
-    if (!el.firstChild) el.innerHTML = '<div class="rm-box" style="height:' + h + 'px"></div><div class="rm-leg"><span><i style="background:#22c55e"></i>Route covered</span><span><i class="dsh"></i>Route ahead</span><span>🚢 sea · 🚛 road · ✈️ air</span></div>';
+    if (!el.firstChild) el.innerHTML = '<div class="rm-box" style="height:' + h + 'px"></div><div class="rm-leg"><span><i style="background:#22c55e"></i>Route covered</span><span><i class="dsh"></i>Route ahead</span><span><i style="background:#f97316"></i>Ship's real AIS track</span><span>🚢 sea · 🚛 road · ✈️ air</span></div>';
     var box = el.querySelector('.rm-box'); box.style.height = h + 'px';
     if (!sc) { box.innerHTML = '<div class="tr-empty" style="padding:40px;text-align:center;color:#9fb6d6">Select a shipment to see its route</div>'; if (map) { map.remove(); map = null; } return; }
     loadLeaflet().then(function (L) {
       var m = ensureMap(L, box); setTimeout(function () { m.invalidateSize(); }, 50);
-      var segs = segments(sc), key = (window.TR ? TR.sc + '|' + TR.sel + '|' : '') + JSON.stringify(sc.N.map(function (n) { return [n.lat, n.lon]; })) + '|' + sc.t;
+      var segs = segments(sc), key = (window.TR ? TR.sc + '|' + TR.sel + '|' : '') + sc.N.map(function (n) { return n.n; }).join('>') + '|' + sc.t;
+      var rr = window.TR && TR.list ? TR.list[TR.sel] : null, lv = rr && rr._live && window.VL && window.vk ? VL[vk(rr.x)] : null;
+      clearInterval(liveTimer);
+      // a live ship: the part already sailed follows its real AIS track instead of the planned lane
+      var li = -1; sc.N.forEach(function (n, i) { if (/· live$/.test(n.n)) li = i; });
+      if (lv && li > 0 && lv.track && lv.track.length > 1 && segs[li - 1]) { var s0 = segs[li - 1][0];
+        segs[li - 1] = [s0].concat(lv.track.map(function (p) { return [p[0], p[1]]; })).concat([[lv.lat, lv.lon]]); }
       var isNew = key !== lastKey || force; lastKey = key;
       if (layers) layers.remove(); layers = L.layerGroup().addTo(m);
       var all = [].concat.apply([], segs), labs = [];
@@ -190,13 +228,26 @@
         L.marker(p, { icon: ic, zIndexOffset: 400 }).addTo(layers).bindTooltip(esc(q.lb), { direction: 'top', offset: [0, -12] })
           .on('click', function () { var it = document.querySelector('#tr-list [data-tr="' + q.i + '"]'); if (it) it.click(); }); });
       var me = sc.M.filter(function (q) { return q.sel; })[0], icon = me ? me.ic : '📦';
-      var veh = L.marker(posAt(segs, 0), { icon: L.divIcon({ className: '', html: '<div class="rm-v"><span class="rm-pulse"></span>' + icon + '</div>', iconSize: [40, 40], iconAnchor: [20, 20] }), zIndexOffset: 1000 }).addTo(layers);
+      // the ship's real AIS track so far
+      if (lv && lv.track && lv.track.length > 1) {
+        L.polyline(lv.track.map(function (p) { return [p[0], p[1]]; }), { color: '#f97316', weight: 3, opacity: 0.95 }).addTo(layers);
+        lv.track.forEach(function (p, i) { if (i % 3 && i !== lv.track.length - 1) return; L.circleMarker([p[0], p[1]], { radius: 2.5, color: '#f97316', weight: 1, fillColor: '#fff', fillOpacity: 1 }).addTo(layers).bindTooltip(esc(when(p[2])), { direction: 'top' }); }); }
+      var vehHtml = lv ? '<div class="rm-v live"><span class="rm-pulse"></span>' + shipSvg(lv.course != null ? lv.course : lv.heading) + '</div>' : '<div class="rm-v"><span class="rm-pulse"></span>' + icon + '</div>';
+      var veh = L.marker(posAt(segs, 0), { icon: L.divIcon({ className: '', html: vehHtml, iconSize: [40, 40], iconAnchor: [20, 20] }), zIndexOffset: 1000 }).addTo(layers);
+      var ahead = L.polyline([], { color: '#22c55e', weight: 3, opacity: 0.9, dashArray: '2 6' }).addTo(layers);
+      liveBox(L, m, lv, rr);
       if (me) { veh.bindTooltip(esc(me.lb), { direction: 'right', offset: [16, 0], className: 'rm-tip', permanent: !document.body.classList.contains('m') }); labs.push({ m: veh, pr: 2, moving: 1 }); }
       LABS = labs; m.off('zoomend', declutter); m.on('zoomend', declutter);
-      if (isNew) m.fitBounds(L.latLngBounds(all).pad(0.12), { animate: false, maxZoom: 9 });
+      if (isNew && !(lv && follow)) m.fitBounds(L.latLngBounds(all).pad(0.12), { animate: false, maxZoom: 9 });
+      if (lv && follow) m.setView([lv.lat, lv.lon], Math.max(m.getZoom() || 0, 8), { animate: !isNew });
       cancelAnimationFrame(raf); var T = sc.t, t0 = performance.now(), dur = isNew ? 1600 : 0;
       var step = function (now) { var k = dur ? Math.min(1, (now - t0) / dur) : 1, e = 1 - Math.pow(1 - k, 3), t = T * e;
-        veh.setLatLng(posAt(segs, t)); covered.setLatLngs(partPath(segs, t)); if (k < 1) raf = requestAnimationFrame(step); else declutter(); };
+        veh.setLatLng(posAt(segs, t)); covered.setLatLngs(partPath(segs, t)); if (k < 1) raf = requestAnimationFrame(step); else { declutter(); if (lv) startLive(); } };
+      // between AIS updates the ship keeps moving on its last speed and course (up to 2 hours), so the icon moves smoothly
+      function startLive() { var tick = function () { var e = estimate(lv); veh.setLatLng(e.pt); ahead.setLatLngs(e.est ? [[lv.lat, lv.lon], e.pt] : []);
+          var st = document.getElementById('rm-est'); if (st) st.textContent = e.est ? 'estimated now (moving ' + lv.speed + ' kn)' : 'last AIS position';
+          if (follow) m.panTo(e.pt, { animate: true }); };
+        tick(); liveTimer = setInterval(tick, 3000); }
       raf = requestAnimationFrame(step);
     }).catch(function (e) { box.innerHTML = '<div class="tr-empty" style="padding:40px;text-align:center">' + esc(e.message) + '</div>'; });
   };

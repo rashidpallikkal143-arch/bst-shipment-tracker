@@ -1,6 +1,6 @@
-node_modules/
+*.log
+.DS_Store
 desktop/dist/
 mobile/android/
 mobile/ios/
-.DS_Store
-*.log
+node_modules/
