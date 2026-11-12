@@ -14,6 +14,7 @@ service cloud.firestore {
       return signedIn() && (profile().rights.get('admin', false) == true || profile().rights.get(r, false) == true);
     }
     function isAdmin() { return signedIn() && profile().rights.get('admin', false) == true; }
+    function isUser(id) { return signedIn() && profile().userId == id; }   // the system users ais-bot and backup-bot
 
     // first-time setup: marks that the first admin exists
     match /meta/bootstrap {
@@ -26,7 +27,7 @@ service cloud.firestore {
 
     // user profiles and rights
     match /users/{uid} {
-      allow read: if request.auth != null && (request.auth.uid == uid || can('users'));
+      allow read: if request.auth != null && (request.auth.uid == uid || can('users') || isUser('backup-bot'));
       allow create: if
         // the very first admin, during first-time setup
         (request.auth != null && request.auth.uid == uid
@@ -53,14 +54,14 @@ service cloud.firestore {
     // sign-in and change history: each person can only add their own lines; nobody can edit or remove them
     match /activity/{id} {
       allow create: if signedIn() && request.resource.data.uid == request.auth.uid;
-      allow read: if can('users');
+      allow read: if can('users') || isUser('backup-bot');
       allow update, delete: if false;
     }
 
     // live ship positions, written every ~15 minutes by the GitHub job that signs in as the user "ais-bot"
     match /vessels/{id} {
       allow read: if can('gView');
-      allow write: if signedIn() && profile().userId == 'ais-bot';
+      allow write: if isUser('ais-bot');
     }
 
     match /settings/{id} {

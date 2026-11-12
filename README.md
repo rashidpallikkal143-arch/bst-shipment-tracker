@@ -70,6 +70,15 @@ All versions open the same live website, so every update reaches every device at
 ## Making a new app release
 Push a tag such as `v1.0.1` (or **Actions → Build apps → Run workflow**). GitHub builds the APK, EXE and DMG and attaches them to a new Release.
 
+## Automatic daily backup
+Every night (about 2 am UAE time) GitHub saves all data (Egypt, Global import, inspections, Matex, settings, users and rights, activity history) as a password-protected zip, kept 90 days.
+Setup once:
+1. In the app: **Users & rights → + Add user**: name `Automatic backup (system)`, user ID `backup-bot`, a long password, rights **Egypt: view, Global import: view, Matex payments: view** only.
+2. GitHub → **Settings → Secrets and variables → Actions**: add `BACKUP_BOT_PASSWORD` (the backup-bot password) and `BACKUP_PASSWORD` (a new password that locks the backup files; keep it safe).
+3. Publish the latest `firestore.rules` in Firebase.
+
+To restore: GitHub → **Actions → Daily backup** → open a run → **Artifacts** → download → open the zip with **7-Zip** and `BACKUP_PASSWORD` → in the app **Settings, import & backup → Import data** → choose the `.json` file (tick "replace" to go back to exactly that day).
+
 ## Backups
 **👤 My account → Settings, import & backup → Download backup** saves all data as one file. Keep a weekly copy.
 

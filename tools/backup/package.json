@@ -1,0 +1,7 @@
+{
+  "name": "bst-auto-backup",
+  "private": true,
+  "type": "module",
+  "description": "Daily backup of all BST tracker data from Firebase",
+  "dependencies": { "firebase": "10.12.2" }
+}
