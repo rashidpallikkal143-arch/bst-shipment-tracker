@@ -80,6 +80,7 @@
   var err = function (m) { return new Error(m); };
   var fullRights = function (r) { var o = {}; r = r || {}; RIGHTS.forEach(function (x) { o[x[0]] = !!r[x[0]]; }); return o; };
   var rightsSig = function (r) { r = r || {}; return RIGHTS.filter(function (x) { return r[x[0]] === true; }).map(function (x) { return x[0]; }).join(','); };
+  var rightsTxt = function (r) { r = r || {}; if (r.admin === true) return 'Full admin'; return RIGHTS.filter(function (x) { return r[x[0]] === true; }).map(function (x) { return x[1]; }).join(', ') || 'no rights'; };
   var cleanId = function (u) { return String(u || '').trim().toLowerCase(); };
   var ID_OK = /^[a-z0-9._-]{3,40}$/, ID_MSG = 'User ID: 3 to 40 characters, letters, numbers, dot, dash or underscore only.';
   function niceErr(e) {
@@ -105,6 +106,7 @@
       set: function (col, id, data) { var a = load(K); a[col] = a[col] || {}; a[col][id] = JSON.parse(JSON.stringify(data)); save(K, a); return Promise.resolve(); },
       merge: function (col, id, data) { var a = load(K); a[col] = a[col] || {}; a[col][id] = Object.assign(a[col][id] || {}, JSON.parse(JSON.stringify(data))); save(K, a); return Promise.resolve(); },
       del: function (col, id) { var a = load(K); if (a[col]) delete a[col][id]; save(K, a); return Promise.resolve(); },
+      recent: function (col, since, max) { return db.all(col).then(function (l) { return l.filter(function (x) { return String(x.at || '') >= since; }).sort(function (a, b) { return a.at < b.at ? 1 : -1; }).slice(0, max); }); },
       batch: function (ops) { ops.forEach(function (o) { if (o.op === 'del') db.del(o.col, o.id); else if (o.op === 'merge') db.merge(o.col, o.id, o.data); else db.set(o.col, o.id, o.data); }); return Promise.resolve(); }
     };
     var auth = {
@@ -136,6 +138,7 @@
         set: function (col, id, data) { return F.setDoc(ref(col, id), clean(data)); },
         merge: function (col, id, data) { return F.setDoc(ref(col, id), clean(data), { merge: true }); },
         del: function (col, id) { return F.deleteDoc(ref(col, id)); },
+        recent: function (col, since, max) { return F.getDocs(F.query(F.collection(fs, col), F.where('at', '>=', since), F.orderBy('at', 'desc'), F.limit(max))).then(function (sn) { return sn.docs.map(function (d) { return Object.assign({ _id: d.id }, d.data()); }); }); },
         watch: function (col, id, cb) { return F.onSnapshot(ref(col, id), function (d) { if (d.metadata.hasPendingWrites) return; cb(d.exists() ? d.data() : null); }, function () {}); },
         batch: function (ops) { var chain = Promise.resolve();
           for (var i = 0; i < ops.length; i += 400) (function (part) { chain = chain.then(function () { var b = F.writeBatch(fs);
@@ -328,6 +331,41 @@
   API.changeMyPassword = function (oldP, newP) { if (!ME) throw err('Sign in first.'); if (String(newP).length < 6) throw err('The password must have at least 6 characters.');
     return S.auth.changePassword(ME.email || userEmail(ME.userId), oldP, newP).then(function () { return true; }); };
 
+  // ------------------------------------------------------------------ activity history (sign-ins and changes)
+  function device() { var u = navigator.userAgent || '', os = /iPhone|iPad|iPod/.test(u) ? (/iPad/.test(u) ? 'iPad' : 'iPhone') : /Android/.test(u) ? 'Android' : /Windows/.test(u) ? 'Windows' : /Macintosh|Mac OS/.test(u) ? (navigator.maxTouchPoints > 1 ? 'iPad' : 'Mac') : /Linux/.test(u) ? 'Linux' : 'Other';
+    var how = /Electron/.test(u) ? 'desktop app' : (/; wv\)/.test(u) || window.Capacitor) ? 'Android app' : (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone ? 'installed app' : 'browser';
+    return os + ' · ' + how; }
+  function logAct(action, section, ref, detail) { if (!ME || !S) return Promise.resolve();
+    var at = new Date().toISOString(), id = at.replace(/\D/g, '').slice(0, 17) + '-' + Math.random().toString(36).slice(2, 7);
+    return S.db.set('activity', id, { at: at, uid: ME.uid, userId: ME.userId || '', name: ME.name || '', action: action, section: section || '', ref: s_(ref).slice(0, 200), detail: s_(detail).slice(0, 300), device: device() }).catch(function (e) { console.warn('activity log', e); }); }
+  var egRef = function (d) { return d ? (d.month || '') + ' · SR ' + (d.sr || '') + ' · INV ' + (d.inv || '-') + (d.container ? ' · ' + d.container : '') : ''; };
+  var TABNAME = { egInsp: ['Egypt', 'inspection'], rxInsp: ['Global import', 'inspection'], matex: ['Egypt', 'Matex payment'] };
+  // what each change is called in the history; pre() reads the record before it is deleted
+  var LOG = {
+    saveEgyptEntry: { pre: function (o) { return o.row ? S.db.get('eg', o.row) : null; }, f: function (a, r, pre) { var v = a[0].v || {}; return [a[0].row ? 'Edited Egypt container' : 'Added Egypt container', 'Egypt', a[0].row ? egRef(pre) : (r && r.month || a[0].month) + ' · INV ' + (v.inv || '-') + (v.container ? ' · ' + v.container : '')]; } },
+    deleteEgyptEntry: { pre: function (o) { return S.db.get('eg', o.row); }, f: function (a, r, pre) { return ['Deleted Egypt container', 'Egypt', egRef(pre)]; } },
+    saveShipment: { f: function (a, r) { return [a[1] ? 'Edited shipment' : 'Added shipment', 'Global import', r + (a[0].supplier ? ' · ' + a[0].supplier : ''), a[1] && a[1] !== r ? 'reference changed from ' + a[1] : '']; } },
+    advanceStage: { f: function (a, r) { return ['Moved shipment to next stage', 'Global import', a[0], 'now: ' + r]; } },
+    deleteShipment: { f: function (a) { return ['Deleted shipment', 'Global import', a[0]]; } },
+    saveTabRow: { f: function (a) { var t = TABNAME[a[0]] || ['', a[0]], x = a[1] || {}; return [(x.id ? 'Saved ' : 'Added ') + t[1], t[0], [x.invoice || x.inv, x.ref || x.container, x.status].filter(Boolean).join(' · ')]; } },
+    deleteTabRow: { pre: function (k, id) { var t = TAB[k]; return t ? S.db.get(t.col, id) : null; }, f: function (a, r, pre) { var t = TABNAME[a[0]] || ['', a[0]], x = pre || {}; return ['Deleted ' + t[1], t[0], [x.invoice || x.inv, x.ref || x.container].filter(Boolean).join(' · ') || a[1]]; } },
+    createUser: { f: function (a) { return ['Created user', 'Users', a[0].name + ' (' + cleanId(a[0].userId) + ')', rightsTxt(a[0].rights)]; } },
+    updateUser: { pre: function (o) { return S.db.get('users', o.uid); }, f: function (a, r, pre) { var o = a[0], p = pre || {}, ch = [];
+      if (o.name !== undefined && o.name !== p.name) ch.push('name: ' + (p.name || '') + ' → ' + o.name);
+      if (o.rights && rightsSig(o.rights) !== rightsSig(p.rights)) ch.push('rights: ' + rightsTxt(o.rights));
+      if (o.active !== undefined && o.active !== (p.active !== false)) ch.push(o.active ? 'switched on' : 'switched off');
+      return ch.length ? ['Changed user', 'Users', (p.name || '') + ' (' + (p.userId || '') + ')', ch.join('; ')] : null; } },
+    resetUserLogin: { pre: function (o) { return S.db.get('users', o.uid); }, f: function (a, r, pre) { var p = pre || {}; return ['Changed user login', 'Users', (p.name || '') + ' (' + (p.userId || '') + ')', r && r.userId !== p.userId ? 'new user ID: ' + r.userId + ', new password' : 'new password']; } },
+    deleteUser: { pre: function (uid) { return S.db.get('users', uid); }, f: function (a, r, pre) { var p = pre || {}; return ['Deleted user', 'Users', (p.name || '') + ' (' + (p.userId || '') + ')']; } },
+    changeMyPassword: { f: function () { return ['Changed own password', 'Account', '']; } },
+    saveSettings: { f: function (a) { return ['Changed settings', 'Settings', Object.keys(a[0] || {}).join(', ')]; } },
+    importData: { f: function (a) { return ['Imported data', 'Settings', a[1] ? 'replaced existing data' : 'added to existing data']; } },
+    exportBackup: { f: function () { return ['Downloaded backup', 'Settings', '']; } }
+  };
+  API.getActivity = function (o) { need('users'); o = o || {}; var days = Math.max(1, Math.min(Number(o.days) || 7, 400));
+    var since = new Date(Date.now() - days * 864e5).toISOString();
+    return S.db.recent('activity', since, Math.min(Number(o.max) || 3000, 5000)).then(function (l) { return l.map(function (x) { return { at: x.at, uid: x.uid, userId: x.userId, name: x.name, action: x.action, section: x.section, ref: x.ref, detail: x.detail, device: x.device }; }); }); };
+
   // ------------------------------------------------------------------ settings, import, backup
   API.getSettings = function () { if (!ME) throw err('Sign in first.'); return loadSettings(); };
   API.saveSettings = function (x) { need('settings'); var up = {}; ['transitDays', 'egMonths', 'egLists', 'rx'].forEach(function (k) { if (x[k] !== undefined) up[k] = x[k]; });
@@ -366,11 +404,16 @@
   window.BST = {
     mode: MODE, rights: RIGHTS, ready: ready,
     me: function () { return ME; }, can: can, settings: function () { return SET; },
-    start: function () { return ready.then(function () { return S.auth.current(); }).then(function (u) { return u ? loadMe(u.uid).catch(function (e) { return S.auth.signOut().then(function () { throw e; }); }) : null; }); },
+    start: function () { return ready.then(function () { return S.auth.current(); }).then(function (u) { return u ? loadMe(u.uid).then(function (m) {
+        // already signed in on this device: note the app was opened (at most once every 4 hours per device)
+        var k = 'bst_open_' + m.uid, last = 0; try { last = Number(localStorage.getItem(k)) || 0; } catch (e) {}
+        if (Date.now() - last > 4 * 36e5) { try { localStorage.setItem(k, String(Date.now())); } catch (e) {} logAct('Opened app (already signed in)', 'Login', ''); }
+        return m; }, function (e) { return S.auth.signOut().then(function () { throw e; }); }) : null; }); },
     needsBootstrap: function () { return ready.then(function () { return S.auth.needsBootstrap(); }).catch(function () { return 'unknown'; }); },
-    signIn: function (u, p) { return ready.then(function () { return loginOf(u); }).then(function (e) { return S.auth.signIn(e, p); }).then(function (x) { return loadMe(x.uid); })
+    signIn: function (u, p) { return ready.then(function () { return loginOf(u); }).then(function (e) { return S.auth.signIn(e, p); }).then(function (x) { return loadMe(x.uid); }).then(function (m) { logAct('Signed in', 'Login', ''); return m; })
       .catch(function (e) { var ne = niceErr(e); return S.auth.signOut().catch(function () {}).then(function () { throw ne; }); }); },
-    signOut: function () { ME = null; if (unwatch) { unwatch(); unwatch = null; } return ready.then(function () { return S.auth.signOut(); }); },
+    signOut: function () { var lo = ME ? logAct('Signed out', 'Login', '') : Promise.resolve(); return lo.then(function () { return window.BST._signOut(); }); },
+    _signOut: function () { ME = null; if (unwatch) { unwatch(); unwatch = null; } return ready.then(function () { return S.auth.signOut(); }); },
     bootstrap: function (name, u, p) { u = String(u || '').trim().toLowerCase();
       if (!ID_OK.test(u)) return Promise.reject(err(ID_MSG));
       if (String(p || '').length < 6) return Promise.reject(err('The password must have at least 6 characters.'));
@@ -378,7 +421,12 @@
         .then(function (x) { return S.db.batch([{ op: 'set', col: 'users', id: x.uid, data: { name: name || u, userId: u, email: userEmail(u), rights: { admin: true }, active: true, created: new Date().toISOString() } },
           { op: 'set', col: 'logins', id: u, data: { email: userEmail(u) } },
           { op: 'set', col: 'meta', id: 'bootstrap', data: { by: x.uid, at: new Date().toISOString() } }]).then(function () { return loadMe(x.uid); }); }).catch(function (e) { throw niceErr(e); }); },
-    call: function (name) { var a = [].slice.call(arguments, 1); return ready.then(function () { if (!API[name]) throw err('Unknown function ' + name); return API[name].apply(null, a); }).catch(function (e) { throw niceErr(e); }); }
+    call: function (name) { var a = [].slice.call(arguments, 1), L = LOG[name], pre = null;
+      return ready.then(function () { if (!API[name]) throw err('Unknown function ' + name);
+        return L && L.pre ? Promise.resolve().then(function () { return L.pre.apply(null, a); }).catch(function () { return null; }) : null; })
+        .then(function (p) { pre = p; return API[name].apply(null, a); })
+        .then(function (r) { if (L) { try { var x = L.f(a, r, pre); if (x) logAct(x[0], x[1], x[2], x[3]); } catch (e) { console.warn(e); } } return r; })
+        .catch(function (e) { throw niceErr(e); }); }
   };
 
   // ------------------------------------------------------------------ google.script.run replacement used by the app

@@ -14,7 +14,8 @@
     '.lg-card .p{width:100%;margin-top:14px;padding:11px;font-size:15px}.lg-m{color:var(--er);font-weight:600;font-size:13px;margin-top:8px;min-height:1px}' +
     '.lg-demo{background:#fff4e0;color:#8a5300;border:1px solid #f6d7a7;border-radius:10px;padding:8px 10px;font-size:12.5px;margin-top:12px;text-align:left}' +
     '.lg-lk{background:none;border:0;color:#0b6e3a;text-decoration:underline;font-size:13px;margin-top:10px;padding:0}' +
-    '#ovacc,#ovusr,#ovset{z-index:96}.ub{max-width:1100px}.uh{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}.uh h2{margin:0;font-size:18px}' +
+    '#ovacc,#ovusr,#ovset,#ovact{z-index:96}#ovact{z-index:97}.af{grid-template-columns:repeat(4,minmax(0,1fr))}.ak{display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px;font-weight:600;white-space:nowrap;background:#eef2f6;color:#334}.ak.li{background:#e3f4ea;color:#0b6b3a}.ak.lo{background:#f1f1f1;color:#666}.ak.ad{background:#e6effc;color:#1d4f9a}.ak.ed{background:#fff3dc;color:#8a5a00}.ak.dl{background:#fde7e5;color:#b3261e}.ak.uu{background:#efe7fb;color:#5b2d91}' +
+    'body.m .af{grid-template-columns:1fr 1fr!important}.ub{max-width:1100px}.uh{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}.uh h2{margin:0;font-size:18px}' +
     '.rch{display:inline-block;font-size:11.5px;font-weight:600;background:#eef4ff;color:#1f4f8f;border-radius:10px;padding:1px 8px;margin:2px 3px 2px 0}.rch.a{background:#e7f7ee;color:#006b35}' +
     '.ut td{vertical-align:top}.ut .off{opacity:.55}.rg{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px 14px;margin-top:8px}' +
     '.rg label{display:flex;align-items:center;gap:7px;font-size:13px;font-weight:500;margin:0}.rg input{width:auto;margin:0}' +
@@ -43,9 +44,14 @@
     '<div class="mu" id="ac-u"></div><div id="ac-r" style="margin-top:8px"></div><div class="ab" id="ac-b"></div>' +
     '<div class="us" id="ac-pw" style="display:none"><h3>Change my password</h3><div class="g" style="grid-template-columns:1fr 1fr 1fr"><label>Current password<input id="pw-o" type="password"></label><label>New password<input id="pw-n" type="password"></label><label>Repeat new<input id="pw-n2" type="password"></label></div>' +
     '<div class="ab"><button class="p" id="pw-go" type="button">Change password</button><span class="mu" id="pw-m" style="align-self:center"></span></div></div></div></div>' +
-    '<div class="ovl" id="ovusr"><div class="box ub"><div class="uh"><h2>Users &amp; rights</h2><span><button class="p" id="us-add" type="button">+ Add user</button> <button type="button" data-x="ovusr">Close</button></span></div>' +
+    '<div class="ovl" id="ovusr"><div class="box ub"><div class="uh"><h2>Users &amp; rights</h2><span><button class="p" id="us-add" type="button">+ Add user</button> <button type="button" id="us-act">🕘 Sign-ins &amp; activity</button> <button type="button" data-x="ovusr">Close</button></span></div>' +
     '<div class="mu" style="margin-top:4px">Create a user ID and password for each person, then tick what they may see and do. Switch a person off to block their access at once.</div>' +
-    '<div class="us" id="us-f" style="display:none"></div><div class="tw" style="margin-top:12px"><table class="cmp ut"><thead><tr><th>Name</th><th>User ID</th><th>Rights</th><th>Status</th><th></th></tr></thead><tbody id="us-l"></tbody></table></div></div></div>' +
+    '<div class="us" id="us-f" style="display:none"></div><div class="tw" style="margin-top:12px"><table class="cmp ut"><thead><tr><th>Name</th><th>User ID</th><th>Rights</th><th>Status</th><th>Last sign-in</th><th></th></tr></thead><tbody id="us-l"></tbody></table></div></div></div>' +
+    '<div class="ovl" id="ovact"><div class="box ub" style="max-width:1300px"><div class="uh"><h2>Sign-ins &amp; activity</h2><span><button type="button" id="ac-csv">⬇ Download (Excel CSV)</button> <button type="button" data-x="ovact">Close</button></span></div>' +
+    '<div class="g af" style="margin-top:10px"><label>User<select id="af-u"><option value="">All users</option></select></label><label>Show<select id="af-t"><option value="">Everything</option><option value="login">Sign-ins &amp; sign-outs</option><option value="chg">Changes only</option></select></label>' +
+    '<label>Period<select id="af-d"><option value="1">Today</option><option value="7" selected>Last 7 days</option><option value="30">Last 30 days</option><option value="90">Last 90 days</option><option value="365">Last 12 months</option></select></label><label>Search<input id="af-q" placeholder="Invoice, container, action…"></label></div>' +
+    '<h3 style="margin:14px 0 6px;font-size:14px">Users in this period</h3><div class="tw"><table class="cmp"><thead><tr><th>User</th><th>Last sign-in</th><th>Sign-ins</th><th>Changes</th><th>Last activity</th><th>Last device</th></tr></thead><tbody id="ac-sum"></tbody></table></div>' +
+    '<h3 style="margin:14px 0 6px;font-size:14px">History <span class="mu" id="ac-cnt"></span></h3><div class="tw" style="max-height:52vh;overflow:auto"><table class="cmp"><thead><tr><th>Date &amp; time</th><th>User</th><th>Action</th><th>Section</th><th>Record</th><th>Details</th><th>Device</th></tr></thead><tbody id="ac-l"></tbody></table></div></div></div>' +
     '<div class="ovl" id="ovset"><div class="box ub"><div class="uh"><h2>Settings &amp; data</h2><button type="button" data-x="ovset">Close</button></div><div id="st-b"></div></div></div>');
 
   // ---------------------------------------------------------------- sign in
@@ -110,11 +116,12 @@
   function openAccount() { var me = B.me(); if (!me) return;
     $('ac-n').innerHTML = esc(me.name || me.userId) + (B.mode === 'demo' ? '<span class="mbadge">Demo mode</span>' : '');
     $('ac-u').textContent = 'User ID: ' + me.userId; $('ac-r').innerHTML = rightsChips(me.rights);
-    $('ac-b').innerHTML = '<button type="button" id="ac-cp">🔑 Change my password</button>' + (B.can('users') ? '<button type="button" id="ac-us">👥 Users &amp; rights</button>' : '') +
+    $('ac-b').innerHTML = '<button type="button" id="ac-cp">🔑 Change my password</button>' + (B.can('users') ? '<button type="button" id="ac-us">👥 Users &amp; rights</button><button type="button" id="ac-ac">🕘 Sign-ins &amp; activity</button>' : '') +
       (B.can('settings') ? '<button type="button" id="ac-st">⚙️ Settings, import &amp; backup</button>' : '') + '<button type="button" id="ac-home">⌂ Sections</button><button type="button" id="ac-out">Sign out</button>';
     $('ac-pw').style.display = 'none'; show('ovacc');
     $('ac-cp').onclick = function () { $('ac-pw').style.display = ''; $('pw-m').textContent = ''; $('pw-o').focus(); };
     if ($('ac-us')) $('ac-us').onclick = function () { hide('ovacc'); openUsers(); };
+    if ($('ac-ac')) $('ac-ac').onclick = function () { hide('ovacc'); openActivity(); };
     if ($('ac-st')) $('ac-st').onclick = function () { hide('ovacc'); openSettings(); };
     $('ac-home').onclick = function () { hide('ovacc'); showHome(); };
     $('ac-out').onclick = function () { hide('ovacc'); signOut(); };
@@ -125,10 +132,15 @@
 
   // ---------------------------------------------------------------- users & rights
   var USERS = [];
-  function openUsers() { show('ovusr'); $('us-f').style.display = 'none'; $('us-l').innerHTML = '<tr><td colspan="5" class="mu">Loading…</td></tr>';
-    B.call('listUsers').then(function (l) { USERS = l; drawUsers(); }).catch(function (e) { $('us-l').innerHTML = '<tr><td colspan="5" class="late">' + esc(e.message) + '</td></tr>'; }); }
+  var LASTIN = {};
+  function openUsers() { show('ovusr'); $('us-f').style.display = 'none'; $('us-l').innerHTML = '<tr><td colspan="6" class="mu">Loading…</td></tr>';
+    B.call('listUsers').then(function (l) { USERS = l; drawUsers();
+      B.call('getActivity', { days: 365, max: 4000 }).then(function (a) { LASTIN = {}; a.forEach(function (x) { if (/^Signed in|^Opened app/.test(x.action) && !LASTIN[x.uid]) LASTIN[x.uid] = x; }); drawUsers(); }).catch(function () {}); })
+      .catch(function (e) { $('us-l').innerHTML = '<tr><td colspan="6" class="late">' + esc(e.message) + '</td></tr>'; }); }
+  function fmtAt(iso) { if (!iso) return ''; var d = new Date(iso); return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) + ' ' + d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }); }
+  function ago(iso) { var m = Math.round((Date.now() - new Date(iso)) / 6e4); return m < 1 ? 'just now' : m < 60 ? m + ' min ago' : m < 1440 ? Math.round(m / 60) + ' h ago' : Math.round(m / 1440) + ' days ago'; }
   function drawUsers() { $('us-l').innerHTML = USERS.map(function (u, i) { return '<tr class="' + (u.active ? '' : 'off') + '"><td><b>' + esc(u.name) + '</b></td><td>' + esc(u.userId) + '</td><td>' + rightsChips(u.rights) + '</td><td>' +
-    (u.active ? '<span class="chip cg">Active</span>' : '<span class="chip cr">Switched off</span>') + '</td><td><button type="button" class="sm" data-ued="' + i + '">Edit</button></td></tr>'; }).join('') || '<tr><td colspan="5" class="mu">No users.</td></tr>'; }
+    (u.active ? '<span class="chip cg">Active</span>' : '<span class="chip cr">Switched off</span>') + '</td><td data-label="Last sign-in">' + (LASTIN[u.uid] ? esc(fmtAt(LASTIN[u.uid].at)) + '<div class="mu" style="font-size:11.5px">' + esc(ago(LASTIN[u.uid].at) + ' · ' + (LASTIN[u.uid].device || '')) + '</div>' : '<span class="mu">—</span>') + '</td><td><button type="button" class="sm" data-ued="' + i + '">Edit</button></td></tr>'; }).join('') || '<tr><td colspan="5" class="mu">No users.</td></tr>'; }
   function userForm(u) { var isNew = !u; u = u || { name: '', userId: '', rights: { egView: true, gView: true }, active: true }; var me = B.me(), self = !isNew && me && u.uid === me.uid;
     $('us-f').style.display = ''; $('us-f').innerHTML = '<h3>' + (isNew ? 'Add a user' : 'Edit ' + esc(u.name)) + '</h3><div class="g" style="grid-template-columns:repeat(3,minmax(0,1fr))">' +
       '<label>Name<input id="uf-n" value="' + esc(u.name) + '" placeholder="e.g. Abdul Nasar"></label><label>User ID (for signing in)<input id="uf-u" value="' + esc(u.userId) + '"' + (isNew ? ' placeholder="e.g. nasar"' : '') + ' autocapitalize="none" autocomplete="off"></label>' +
@@ -139,10 +151,11 @@
       '<div class="mu" style="margin-top:6px">Tip: "add &amp; edit" works best together with "view" of the same section. A full admin has every right.</div>' +
       (isNew ? '' : self ? '<div class="mu" style="margin-top:6px">This is you. To change your own user ID or password use "Change my password" in My account.</div>'
         : '<div class="mu" style="margin-top:6px">Changing the user ID needs a new password too. After saving, give the person the new user ID and password: the old ones stop working. Rights and their entries stay the same.</div>') +
-      '<div class="ab"><button class="p" id="uf-s" type="button">' + (isNew ? 'Create user' : 'Save changes') + '</button><button type="button" id="uf-c">Cancel</button>' +
+      '<div class="ab"><button class="p" id="uf-s" type="button">' + (isNew ? 'Create user' : 'Save changes') + '</button><button type="button" id="uf-c">Cancel</button>' + (isNew ? '' : '<button type="button" id="uf-h">🕘 Activity</button>') +
       (!isNew && !self && me.rights && me.rights.admin ? '<button type="button" id="uf-d" class="dg" style="margin-left:auto">🗑 Delete user…</button>' : '') +
       '<span class="mu" id="uf-m" style="align-self:center"></span></div><div id="uf-x"></div>';
     $('uf-c').onclick = function () { $('us-f').style.display = 'none'; };
+    if ($('uf-h')) $('uf-h').onclick = function () { openActivity(u.uid); };
     $('uf-s').onclick = function () { var r = {}; document.querySelectorAll('#us-f [data-r]').forEach(function (c) { if (c.checked) r[c.dataset.r] = true; });
       $('uf-s').disabled = true; $('uf-m').textContent = 'Saving…';
       var nid = $('uf-u').value.trim().toLowerCase(), npw = $('uf-p') ? $('uf-p').value : '', login = !isNew && !self && (nid !== u.userId || npw !== '');
@@ -172,6 +185,32 @@
       }).catch(function (e) { x.innerHTML = '<div class="late" style="margin-top:8px">' + esc(e.message) + '</div>'; $('uf-d').disabled = false; }); };
     setTimeout(function () { (isNew ? $('uf-n') : $('uf-n')).focus(); }, 50); }
   $('us-add').onclick = function () { userForm(null); };
+  $('us-act').onclick = function () { openActivity(); };
+  // ---------------------------------------------------------------- sign-ins & activity history
+  var ACT = [], ACTDAYS = 0;
+  var isLogin = function (a) { return /^Signed (in|out)|^Opened app/.test(a); };
+  var akCls = function (a) { return /^Signed in|^Opened/.test(a) ? 'li' : /^Signed out/.test(a) ? 'lo' : /^Deleted/.test(a) ? 'dl' : /user|password/i.test(a) ? 'uu' : /^Added|^Created|^Imported/.test(a) ? 'ad' : 'ed'; };
+  function openActivity(uid) { show('ovact'); var sel = $('af-u'); sel.innerHTML = '<option value="">All users</option>' + USERS.map(function (u) { return '<option value="' + esc(u.uid) + '">' + esc(u.name + ' (' + u.userId + ')') + '</option>'; }).join('');
+    if (uid) sel.value = uid; loadActivity(); }
+  function loadActivity() { var d = +$('af-d').value; $('ac-l').innerHTML = '<tr><td colspan="7" class="mu">Loading…</td></tr>'; $('ac-sum').innerHTML = '';
+    B.call('getActivity', { days: d, max: 5000 }).then(function (a) { ACT = a; ACTDAYS = d; drawActivity(); })
+      .catch(function (e) { $('ac-l').innerHTML = '<tr><td colspan="7" class="late">' + esc(e.message) + (/permission|insufficient/i.test(e.message) ? ' — publish the latest database rules in Firebase (Firestore → Rules).' : '') + '</td></tr>'; }); }
+  function actRows() { var u = $('af-u').value, t = $('af-t').value, q = $('af-q').value.trim().toLowerCase(), start = new Date(); start.setHours(0, 0, 0, 0);
+    return ACT.filter(function (x) { if (ACTDAYS === 1 && new Date(x.at) < start) return false; if (u && x.uid !== u) return false; if (t === 'login' && !isLogin(x.action)) return false; if (t === 'chg' && isLogin(x.action)) return false;
+      return !q || [x.name, x.userId, x.action, x.section, x.ref, x.detail, x.device].join(' ').toLowerCase().indexOf(q) >= 0; }); }
+  function drawActivity() { var rows = actRows(), sum = {};
+    rows.forEach(function (x) { var s = sum[x.uid] = sum[x.uid] || { name: x.name, userId: x.userId, uid: x.uid, ins: 0, chg: 0, lastIn: '', last: '', dev: '' };
+      if (!s.last) { s.last = x.at; s.dev = x.device; } if (/^Signed in|^Opened/.test(x.action)) { s.ins++; if (!s.lastIn) s.lastIn = x.at; } else if (!isLogin(x.action)) s.chg++; });
+    var sl = Object.keys(sum).map(function (k) { return sum[k]; }).sort(function (a, b) { return a.last < b.last ? 1 : -1; });
+    $('ac-sum').innerHTML = sl.map(function (s) { return '<tr><td><b>' + esc(s.name) + '</b> <span class="mu">' + esc(s.userId) + '</span></td><td data-label="Last sign-in">' + (s.lastIn ? esc(fmtAt(s.lastIn)) + ' <span class="mu">(' + ago(s.lastIn) + ')</span>' : '<span class="mu">—</span>') +
+      '</td><td data-label="Sign-ins">' + s.ins + '</td><td data-label="Changes">' + s.chg + '</td><td data-label="Last activity">' + esc(fmtAt(s.last)) + '</td><td data-label="Last device">' + esc(s.dev || '') + '</td></tr>'; }).join('') || '<tr><td colspan="6" class="mu">No activity in this period.</td></tr>';
+    $('ac-cnt').textContent = '(' + rows.length + (rows.length >= 5000 ? '+, showing the latest 5000' : '') + ')';
+    $('ac-l').innerHTML = rows.slice(0, 1500).map(function (x) { return '<tr><td style="white-space:nowrap">' + esc(fmtAt(x.at)) + '</td><td data-label="User"><b>' + esc(x.name) + '</b> <span class="mu">' + esc(x.userId) + '</span></td><td data-label="Action"><span class="ak ' + akCls(x.action) + '">' + esc(x.action) + '</span></td><td data-label="Section">' + esc(x.section) +
+      '</td><td data-label="Record">' + esc(x.ref) + '</td><td data-label="Details">' + esc(x.detail) + '</td><td data-label="Device" class="mu" style="white-space:nowrap">' + esc(x.device) + '</td></tr>'; }).join('') + (rows.length > 1500 ? '<tr><td colspan="7" class="mu">Showing the latest 1500. Download the CSV for all of them.</td></tr>' : '') || '<tr><td colspan="7" class="mu">No activity for this filter.</td></tr>'; }
+  $('af-d').onchange = loadActivity; $('af-u').onchange = drawActivity; $('af-t').onchange = drawActivity; $('af-q').oninput = drawActivity;
+  $('ac-csv').onclick = function () { var q = function (v) { v = String(v == null ? '' : v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
+    var csv = '﻿' + [['Date & time', 'Name', 'User ID', 'Action', 'Section', 'Record', 'Details', 'Device']].concat(actRows().map(function (x) { return [fmtAt(x.at), x.name, x.userId, x.action, x.section, x.ref, x.detail, x.device]; })).map(function (r) { return r.map(q).join(','); }).join('\r\n');
+    var a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' })); a.download = 'BST activity ' + new Date().toISOString().slice(0, 10) + '.csv'; document.body.appendChild(a); a.click(); setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 500); };
   $('us-l').addEventListener('click', function (e) { var b = e.target.closest('[data-ued]'); if (b) userForm(USERS[+b.dataset.ued]); });
 
   // ---------------------------------------------------------------- settings, import, backup

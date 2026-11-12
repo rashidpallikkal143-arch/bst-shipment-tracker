@@ -50,6 +50,13 @@ service cloud.firestore {
       allow delete: if can('users');
     }
 
+    // sign-in and change history: each person can only add their own lines; nobody can edit or remove them
+    match /activity/{id} {
+      allow create: if signedIn() && request.resource.data.uid == request.auth.uid;
+      allow read: if can('users');
+      allow update, delete: if false;
+    }
+
     match /settings/{id} {
       allow read: if signedIn();
       allow write: if can('settings') || can('egEdit');   // adding a new Egypt month updates the month list

@@ -46,6 +46,8 @@ Switching a user **off** blocks them immediately. People change their own passwo
 
 **Edit a user:** Users & rights → **Edit**. You can change the name, rights and status. Type a **new password** (and, if you like, a **new user ID**) to reset someone's login. The old login stops working at once; their rights and entries stay.
 
+**Sign-ins & activity:** Users & rights → **🕘 Sign-ins & activity** shows when each person signed in (date, time, device) and everything they added, edited or deleted, with filters and an Excel (CSV) download. The history cannot be edited or removed.
+
 **Delete a user (full admin only):** Edit → **🗑 Delete user…**. The app first lists every entry that person added or changed (Egypt, Global import, inspections, Matex). Tick "I have checked the entries" → **Delete user**. Their entries are kept. You cannot delete yourself.
 
 ## Install the apps
