@@ -197,7 +197,7 @@
     var el = document.getElementById('tr-real'); if (!el || el.style.display === 'none') return;
     var sc = typeof trScene === 'function' ? trScene() : null;
     var h = Math.max(340, Math.round(window.innerHeight * (document.body.classList.contains('m') ? 0.6 : 0.62)));
-    if (!el.firstChild) el.innerHTML = '<div class="rm-box" style="height:' + h + 'px"></div><div class="rm-leg"><span><i style="background:#22c55e"></i>Route covered</span><span><i class="dsh"></i>Route ahead</span><span><i style="background:#f97316"></i>Ship's real AIS track</span><span>🚢 sea · 🚛 road · ✈️ air</span></div>';
+    if (!el.firstChild) el.innerHTML = '<div class="rm-box" style="height:' + h + 'px"></div><div class="rm-leg"><span><i style="background:#22c55e"></i>Route covered</span><span><i class="dsh"></i>Route ahead</span><span><i style="background:#f97316"></i>Ship\'s real AIS track</span><span>🚢 sea · 🚛 road · ✈️ air</span></div>';
     var box = el.querySelector('.rm-box'); box.style.height = h + 'px';
     if (!sc) { box.innerHTML = '<div class="tr-empty" style="padding:40px;text-align:center;color:#9fb6d6">Select a shipment to see its route</div>'; if (map) { map.remove(); map = null; } return; }
     loadLeaflet().then(function (L) {
