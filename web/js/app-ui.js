@@ -15,6 +15,10 @@
     '.lg-demo{background:#fff4e0;color:#8a5300;border:1px solid #f6d7a7;border-radius:10px;padding:8px 10px;font-size:12.5px;margin-top:12px;text-align:left}' +
     '.lg-lk{background:none;border:0;color:#0b6e3a;text-decoration:underline;font-size:13px;margin-top:10px;padding:0}' +
     '#ovacc,#ovusr,#ovset,#ovact{z-index:96}#ovact{z-index:97}.af{grid-template-columns:repeat(4,minmax(0,1fr))}.ak{display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px;font-weight:600;white-space:nowrap;background:#eef2f6;color:#334}.ak.li{background:#e3f4ea;color:#0b6b3a}.ak.lo{background:#f1f1f1;color:#666}.ak.ad{background:#e6effc;color:#1d4f9a}.ak.ed{background:#fff3dc;color:#8a5a00}.ak.dl{background:#fde7e5;color:#b3261e}.ak.uu{background:#efe7fb;color:#5b2d91}' +
+    // iPhone/Android: keep windows below the clock bar; big close button on every window
+    'body.m .ovl{padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom);background:#04512c}body.m .ovl .box{min-height:calc(100% - env(safe-area-inset-top))}' +
+    '.mx{display:none}body.m .mx{display:flex;position:fixed;z-index:5;top:calc(env(safe-area-inset-top) + 8px);right:10px;width:42px;height:42px;border-radius:50%;border:0;background:#04512c;color:#fff;font-size:22px;line-height:1;align-items:center;justify-content:center;box-shadow:0 3px 10px rgba(0,0,0,.35);padding:0;cursor:pointer}' +
+    'body.m .ovl .box>.uh,body.m .ovl .box>.tr-hd{padding-right:50px}body.m #login{padding-top:calc(env(safe-area-inset-top) + 24px)}' +
     'body.m .af{grid-template-columns:1fr 1fr!important}.ub{max-width:1100px}.uh{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}.uh h2{margin:0;font-size:18px}' +
     '.rch{display:inline-block;font-size:11.5px;font-weight:600;background:#eef4ff;color:#1f4f8f;border-radius:10px;padding:1px 8px;margin:2px 3px 2px 0}.rch.a{background:#e7f7ee;color:#006b35}' +
     '.ut td{vertical-align:top}.ut .off{opacity:.55}.rg{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px 14px;margin-top:8px}' +
@@ -184,6 +188,8 @@
         x.scrollIntoView({ block: 'nearest' });
       }).catch(function (e) { x.innerHTML = '<div class="late" style="margin-top:8px">' + esc(e.message) + '</div>'; $('uf-d').disabled = false; }); };
     setTimeout(function () { (isNew ? $('uf-n') : $('uf-n')).focus(); }, 50); }
+  // floating ✕ on phones for every window (forms still ask Save / Don't save)
+  [].forEach.call(document.querySelectorAll('.ovl'), function (o) { if (!o.id || o.querySelector(':scope>.mx')) return; var b = document.createElement('button'); b.type = 'button'; b.className = 'mx'; b.setAttribute('data-x', o.id); b.setAttribute('aria-label', 'Close'); b.textContent = '✕'; o.insertBefore(b, o.firstChild); });
   $('us-add').onclick = function () { userForm(null); };
   $('us-act').onclick = function () { openActivity(); };
   // ---------------------------------------------------------------- sign-ins & activity history
