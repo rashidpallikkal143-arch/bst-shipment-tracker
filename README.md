@@ -50,6 +50,14 @@ Switching a user **off** blocks them immediately. People change their own passwo
 
 **Delete a user (full admin only):** Edit → **🗑 Delete user…**. The app first lists every entry that person added or changed (Egypt, Global import, inspections, Matex). Tick "I have checked the entries" → **Delete user**. Their entries are kept. You cannot delete yourself.
 
+## Live ship positions (free)
+The tracker map shows ships live using the free service aisstream.io. A GitHub job collects positions about every 15 minutes.
+1. Sign up at https://aisstream.io (Sign in with GitHub) → **API Keys** → create a key.
+2. In the app: **Users & rights → + Add user**: name `AIS live tracking (system)`, user ID `ais-bot`, a long password, right **Global import: view** only.
+3. GitHub repository → **Settings → Secrets and variables → Actions → New repository secret**: `AISSTREAM_KEY` (the key) and `AIS_BOT_PASSWORD` (the ais-bot password).
+4. Publish the latest `firestore.rules` in Firebase (Firestore → Rules → Publish).
+5. Put the **MMSI** (or IMO) number on each shipment. IMO-only ships are matched to their MMSI automatically, which can take a few rounds.
+
 ## Install the apps
 - **iPhone / iPad:** open the website in **Safari** → Share → **Add to Home Screen**.
 - **Android:** download `BST-Shipment-Tracker-Android.apk` from Releases → open it → allow "install unknown apps". (Or in Chrome: ⋮ → Install app.)
