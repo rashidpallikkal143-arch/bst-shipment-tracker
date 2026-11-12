@@ -78,6 +78,8 @@
   var rxKey = function (o) { var inv = String(o.invoice || '').split(/\s*[,;\n]\s*/)[0].trim(); return inv || o.po || o.pi || o.refId || ''; };
   var userEmail = function (uid) { uid = String(uid || '').trim().toLowerCase(); return uid.indexOf('@') >= 0 ? uid : uid + '@' + DOMAIN; };
   var err = function (m) { return new Error(m); };
+  var fullRights = function (r) { var o = {}; r = r || {}; RIGHTS.forEach(function (x) { o[x[0]] = !!r[x[0]]; }); return o; };
+  var rightsSig = function (r) { r = r || {}; return RIGHTS.filter(function (x) { return r[x[0]] === true; }).map(function (x) { return x[0]; }).join(','); };
   var cleanId = function (u) { return String(u || '').trim().toLowerCase(); };
   var ID_OK = /^[a-z0-9._-]{3,40}$/, ID_MSG = 'User ID: 3 to 40 characters, letters, numbers, dot, dash or underscore only.';
   function niceErr(e) {
@@ -134,6 +136,7 @@
         set: function (col, id, data) { return F.setDoc(ref(col, id), clean(data)); },
         merge: function (col, id, data) { return F.setDoc(ref(col, id), clean(data), { merge: true }); },
         del: function (col, id) { return F.deleteDoc(ref(col, id)); },
+        watch: function (col, id, cb) { return F.onSnapshot(ref(col, id), function (d) { if (d.metadata.hasPendingWrites) return; cb(d.exists() ? d.data() : null); }, function () {}); },
         batch: function (ops) { var chain = Promise.resolve();
           for (var i = 0; i < ops.length; i += 400) (function (part) { chain = chain.then(function () { var b = F.writeBatch(fs);
             part.forEach(function (o) { if (o.op === 'del') b.delete(ref(o.col, o.id)); else if (o.op === 'merge') b.set(ref(o.col, o.id), clean(o.data), { merge: true }); else b.set(ref(o.col, o.id), clean(o.data)); });
@@ -171,7 +174,16 @@
     if (!u) throw err('This login has no user profile. Ask your admin to set up your user ID.');
     if (u.archived) throw err('The admin has changed this login. Ask them for your new user ID and password.');
     if (u.active === false) throw err('This user ID has been switched off by the admin.');
-    ME = Object.assign({ uid: uid }, u); ME.rights = ME.rights || {}; return loadSettings().then(function () { return ME; }); }); }
+    ME = Object.assign({ uid: uid }, u); ME.rights = ME.rights || {}; watchMe(uid); return loadSettings().then(function () { return ME; }); }); }
+  // when the admin changes this person's rights or switches them off, the open app reloads with the new access
+  var unwatch = null;
+  function watchMe(uid) { if (unwatch) { unwatch(); unwatch = null; } if (!S.db.watch) return;
+    var sig = rightsSig(ME.rights) + '|' + (ME.active !== false) + '|' + !!ME.archived;
+    unwatch = S.db.watch('users', uid, function (d) { if (!ME || ME.uid !== uid) return;
+      var now = d ? rightsSig(d.rights) + '|' + (d.active !== false) + '|' + !!d.archived : 'gone';
+      if (now === sig) return; sig = now; if (unwatch) { unwatch(); unwatch = null; }
+      try { alert('The admin has updated your access. The app will now reload.'); } catch (e) {}
+      location.reload(); }); }
 
   // ------------------------------------------------------------------ Egypt
   function egCompute(r) {
@@ -276,7 +288,7 @@
     if (String(o.password || '').length < 6) throw err('The password must have at least 6 characters.');
     if (o.rights && o.rights.admin && !can('admin')) throw err('Only a full admin can create another full admin.');
     return idTaken(id).then(function (t) { if (t) throw err('This user ID already exists.'); return newLogin(id, o.password); }).then(function (L) {
-      return S.db.batch([{ op: 'set', col: 'users', id: L.uid, data: { name: s_(o.name) || id, userId: id, email: L.email, rights: o.rights || {}, active: true, created: new Date().toISOString(), createdBy: ME.userId || '' } },
+      return S.db.batch([{ op: 'set', col: 'users', id: L.uid, data: { name: s_(o.name) || id, userId: id, email: L.email, rights: fullRights(o.rights), active: true, created: new Date().toISOString(), createdBy: ME.userId || '' } },
         { op: 'set', col: 'logins', id: id, data: { email: L.email } }]).then(function () { return L.uid; }); }); };
   // admin sets a new password and/or a new user ID for someone: a new login replaces the old one; rights, history and entries stay
   API.resetUserLogin = function (o) { need('users'); var pw = String(o.password || '');
@@ -311,7 +323,7 @@
   API.updateUser = function (o) { need('users'); if (o.uid === ME.uid && o.rights && !o.rights.admin && ME.rights.admin) throw err('You cannot remove your own full-admin right.');
     if (o.uid === ME.uid && o.active === false) throw err('You cannot switch off your own user ID.');
     if (o.rights && o.rights.admin && !can('admin')) throw err('Only a full admin can give full-admin rights.');
-    var up = {}; ['name', 'rights', 'active'].forEach(function (k) { if (o[k] !== undefined) up[k] = o[k]; }); up.updated = new Date().toISOString();
+    var up = {}; ['name', 'rights', 'active'].forEach(function (k) { if (o[k] !== undefined) up[k] = o[k]; }); if (up.rights) up.rights = fullRights(up.rights); up.updated = new Date().toISOString(); up.updatedBy = ME.userId || '';
     return S.db.merge('users', o.uid, up).then(function () { return true; }); };
   API.changeMyPassword = function (oldP, newP) { if (!ME) throw err('Sign in first.'); if (String(newP).length < 6) throw err('The password must have at least 6 characters.');
     return S.auth.changePassword(ME.email || userEmail(ME.userId), oldP, newP).then(function () { return true; }); };
@@ -358,7 +370,7 @@
     needsBootstrap: function () { return ready.then(function () { return S.auth.needsBootstrap(); }).catch(function () { return 'unknown'; }); },
     signIn: function (u, p) { return ready.then(function () { return loginOf(u); }).then(function (e) { return S.auth.signIn(e, p); }).then(function (x) { return loadMe(x.uid); })
       .catch(function (e) { var ne = niceErr(e); return S.auth.signOut().catch(function () {}).then(function () { throw ne; }); }); },
-    signOut: function () { ME = null; return ready.then(function () { return S.auth.signOut(); }); },
+    signOut: function () { ME = null; if (unwatch) { unwatch(); unwatch = null; } return ready.then(function () { return S.auth.signOut(); }); },
     bootstrap: function (name, u, p) { u = String(u || '').trim().toLowerCase();
       if (!ID_OK.test(u)) return Promise.reject(err(ID_MSG));
       if (String(p || '').length < 6) return Promise.reject(err('The password must have at least 6 characters.'));
