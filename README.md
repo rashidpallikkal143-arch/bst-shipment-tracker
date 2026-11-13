@@ -58,6 +58,10 @@ The tracker map shows ships live using the free service aisstream.io. A GitHub j
 4. Publish the latest `firestore.rules` in Firebase (Firestore → Rules → Publish).
 5. Put the **MMSI** (or IMO) number on each shipment. IMO-only ships are matched to their MMSI automatically, which can take a few rounds.
 
+**Exact live position (free):** for every shipment with an MMSI or IMO number, the tracker opens VesselFinder's live map of that ship (land and satellite receivers). The free aisstream.io feed has almost no receivers between India, Pakistan and the UAE, so it rarely has positions for our routes.
+
+**Optional paid feed on our own map:** buy credits at VesselFinder (api.vesselfinder.com), then add the GitHub secret `VESSELFINDER_KEY`. The live-ship job then fetches each ship's position (at most once an hour per ship, only when no free position is available) and draws it on the real map with its track.
+
 ## Install the apps
 - **iPhone / iPad:** open the website in **Safari** → Share → **Add to Home Screen**.
 - **Android:** download `BST-Shipment-Tracker-Android.apk` from Releases → open it → allow "install unknown apps". (Or in Chrome: ⋮ → Install app.)

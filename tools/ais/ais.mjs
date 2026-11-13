@@ -7,9 +7,10 @@ import { initializeApp } from 'firebase/app';
 import { getAuth, signInWithEmailAndPassword } from 'firebase/auth';
 import { getFirestore, collection, getDocs, doc, getDoc, setDoc, deleteDoc, query, where } from 'firebase/firestore';
 
+const VF_KEY = process.env.VESSELFINDER_KEY || '', VF_EVERY = Math.max(15, Number(process.env.VF_EVERY_MINUTES || 60));
 const KEY = process.env.AISSTREAM_KEY, BOT = (process.env.AIS_BOT_ID || 'ais-bot').toLowerCase(), PW = process.env.AIS_BOT_PASSWORD;
 const LISTEN = Math.max(30, Number(process.env.LISTEN_SECONDS || 270)) * 1000;
-if (!KEY || !PW) { console.log('Live ship tracking is not set up yet: add the GitHub secrets AISSTREAM_KEY and AIS_BOT_PASSWORD.'); process.exit(0); }
+if ((!KEY && !VF_KEY) || !PW) { console.log('Live ship tracking is not set up yet: add the GitHub secrets AISSTREAM_KEY and AIS_BOT_PASSWORD.'); process.exit(0); }
 
 // Firebase settings are the same public values the website uses
 const win = {}; new Function('window', fs.readFileSync(new URL('../../web/js/config.js', import.meta.url), 'utf8'))(win);
@@ -63,22 +64,41 @@ async function main() {
     Object.assign(r, { lat, lon, speed: p.Sog != null && p.Sog < 102.3 ? +Number(p.Sog).toFixed(1) : null, course: p.Cog != null && p.Cog < 360 ? +Number(p.Cog).toFixed(1) : null,
       heading: p.TrueHeading != null && p.TrueHeading < 360 ? p.TrueHeading : null, navstat: p.NavigationalStatus ?? null, ts: toIso(md.time_utc) }); }
   // ships known only by IMO: watch the ships' own identity broadcasts to learn their MMSI
-  if (unknownImo.size) open(JSON.stringify({ APIKey: KEY, BoundingBoxes: WORLD, FilterMessageTypes: ['ShipStaticData'] }), j => {
+  if (unknownImo.size && KEY) open(JSON.stringify({ APIKey: KEY, BoundingBoxes: WORLD, FilterMessageTypes: ['ShipStaticData'] }), j => {
     const st = (j.Message || {}).ShipStaticData || {}, imo = String(st.ImoNumber || ''); if (!unknownImo.has(imo)) return;
     const m = String((j.MetaData || {}).MMSI || ''); if (!/^\d{9}$/.test(m)) return;
     unknownImo.delete(imo); want.set(m, { imo, name: st.Name || '' }); onStatic(m, st); console.log(`Matched IMO ${imo} to MMSI ${m}`); setTimeout(subPos, 1100); })
     .then(w => setTimeout(() => w.close(), LISTEN));
-  subPos();
-  await new Promise(r => setTimeout(r, LISTEN));
+  if (KEY) { subPos(); await new Promise(r => setTimeout(r, LISTEN)); }
   if (posWs) posWs.close();
+
+  // paid VesselFinder feed (terrestrial + satellite): only for ships with no fresh free position, at most every VF_EVERY minutes per ship
+  if (VF_KEY) {
+    const fresh = m => { const r = got.get(m), o = vdocs.get(m) || {}, t = Math.max(Date.parse((r && r.ts) || 0) || 0, Date.parse(o.ts || 0) || 0); return Date.now() - t < 30 * 60e3; };
+    const due = [...want.keys()].filter(m => !fresh(m) && Date.now() - (Date.parse((vdocs.get(m) || {}).vfAt || 0) || 0) > VF_EVERY * 60e3);
+    if (due.length) {
+      try {
+        const res = await fetch('https://api.vesselfinder.com/vessels?userkey=' + encodeURIComponent(VF_KEY) + '&mmsi=' + due.join(',') + '&sat=1&format=json');
+        if (!res.ok) console.log('VesselFinder answered ' + res.status + (res.status === 402 ? ' (no credits left)' : res.status === 401 ? ' (wrong key)' : ''));
+        else (await res.json()).forEach(v => { const a = v.AIS || {}, m = String(a.MMSI || ''); if (!want.has(m)) return;
+          const lat = Number(a.LATITUDE), lon = Number(a.LONGITUDE); const r = rec(m); r.vfAt = new Date().toISOString(); if (!isFinite(lat) || !isFinite(lon)) return;
+          const ts = toIso(a.TIMESTAMP); (r.pts = r.pts || []).push([+lat.toFixed(5), +lon.toFixed(5), ts]);
+          Object.assign(r, { lat, lon, speed: a.SPEED != null ? Number(a.SPEED) : null, course: a.COURSE != null ? Number(a.COURSE) : null, heading: a.HEADING != null && a.HEADING < 360 ? Number(a.HEADING) : null,
+            navstat: a.NAVSTAT ?? null, ts, src: 'VesselFinder ' + (a.SRC || '') });
+          if (a.NAME) r.name = String(a.NAME).trim(); if (a.DESTINATION) r.dest = String(a.DESTINATION).trim(); if (a.ETA_AIS || a.ETA) r.eta = String(a.ETA_AIS || a.ETA); if (a.IMO) r.imo = String(a.IMO); });
+        due.forEach(m => { rec(m).vfAt = rec(m).vfAt || new Date().toISOString(); });
+        console.log('VesselFinder checked ' + due.length + ' ship(s)');
+      } catch (e) { console.log('VesselFinder not reachable: ' + (e.message || e)); }
+    }
+  }
 
   // save
   const now = new Date().toISOString(); let saved = 0;
   for (const [m, w] of want) { const r = got.get(m), old = vdocs.get(m) || {};
     if (!r && old.imo === w.imo && old.mmsi) continue;
     const out = { mmsi: m, imo: (r && r.imo) || w.imo || old.imo || '', name: (r && r.name) || old.name || w.name || '', checked: now };
-    if (r) { ['dest', 'eta'].forEach(k => { if (r[k]) out[k] = r[k]; });
-      if (r.ts) { Object.assign(out, { lat: r.lat, lon: r.lon, speed: r.speed, course: r.course, heading: r.heading, navstat: r.navstat, ts: r.ts });
+    if (r) { ['dest', 'eta', 'vfAt'].forEach(k => { if (r[k]) out[k] = r[k]; }); out.src = r.src || 'aisstream';
+      if (r.ts && (!old.ts || Date.parse(r.ts) >= Date.parse(old.ts))) { Object.assign(out, { lat: r.lat, lon: r.lon, speed: r.speed, course: r.course, heading: r.heading, navstat: r.navstat, ts: r.ts });
         let tr = Array.isArray(old.track) ? old.track.slice() : [];
         (r.pts || []).forEach(p => { const l = tr[tr.length - 1]; if (!l || km(l, p) > 0.4 || (Date.parse(p[2]) - Date.parse(l[2])) > 30 * 60e3) tr.push(p); });
         out.track = tr.slice(-400); } }

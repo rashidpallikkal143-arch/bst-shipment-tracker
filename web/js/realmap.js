@@ -177,7 +177,7 @@
     if (liveCtl) { liveCtl.remove(); liveCtl = null; }
     var x = rr && rr.x; if (!x || x.sc === 'eg' || !(window.TR && TR.sc === 'rx')) return;
     var Ctl = L.Control.extend({ options: { position: 'bottomleft' }, onAdd: function () { var d = L.DomUtil.create('div', 'rm-live'); L.DomEvent.disableClickPropagation(d); L.DomEvent.disableScrollPropagation(d);
-      if (!lv) { d.innerHTML = '<b>🚢 ' + esc(x.vessel || 'Vessel') + '</b><div class="mu">' + (window.vk && vk(x) ? 'No live position yet. Positions are checked about every 15 minutes; far out at sea a ship can be out of range for a while.' : 'Add the vessel <b>MMSI</b> (or IMO) number to this shipment to see the ship live here.') + '</div>'; return d; }
+      if (!lv) { d.innerHTML = '<b>🚢 ' + esc(x.vessel || 'Vessel') + '</b><div class="mu">' + (window.vk && vk(x) ? 'This map has no recent position for the ship yet. VesselFinder shows its exact position now:' : 'Add the vessel <b>MMSI</b> (or IMO) number to this shipment to see the ship live here.') + '</div>' + (window.vk && vk(x) ? '<button type="button" class="rm-go" data-trv="ais">📡 See exact live position</button>' : ''); return d; }
       d.innerHTML = '<div class="rm-lh"><b>🚢 ' + esc(lv.name || x.vessel || 'Vessel') + '</b><span class="rm-dot"></span><span class="rm-ago">Live AIS</span></div>' +
         '<div class="rm-kv"><span>Speed</span><b>' + (lv.speed != null ? esc(lv.speed) + ' kn' : '-') + '</b><span>Course</span><b>' + (lv.course != null ? Math.round(lv.course) + '°' : '-') + '</b>' +
         '<span>Status</span><b>' + esc(NAV[lv.navstat] || '-') + '</b><span>Destination</span><b>' + esc(lv.dest || '-') + '</b><span>AIS ETA</span><b>' + esc(lv.eta || '-') + '</b>' +

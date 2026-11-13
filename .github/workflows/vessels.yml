@@ -25,6 +25,8 @@ jobs:
         env:
           AISSTREAM_KEY: ${{ secrets.AISSTREAM_KEY }}
           AIS_BOT_PASSWORD: ${{ secrets.AIS_BOT_PASSWORD }}
+          VESSELFINDER_KEY: ${{ secrets.VESSELFINDER_KEY }}
+          VF_EVERY_MINUTES: '60'
           AIS_BOT_ID: ais-bot
           LISTEN_SECONDS: '300'
         run: node ais.mjs
