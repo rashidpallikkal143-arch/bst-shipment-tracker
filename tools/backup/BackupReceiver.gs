@@ -34,3 +34,27 @@ function folder_() { const f = DriveApp.getFoldersByName(FOLDER); return f.hasNe
 function out_(o) { return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON); }
 /** Run once by hand (Run > testSetup) to give the script permission for Drive and Mail. */
 function testSetup() { Logger.log('Drive folder: ' + folder_().getUrl()); if (EMAIL_TO) Logger.log('Emails will go to ' + EMAIL_TO + '. Mail quota left today: ' + MailApp.getRemainingDailyQuota()); }
+
+/* ---------------------------------------------------------------------------------------------
+ * Live ship tracking timer. GitHub's own schedule is irregular (often hours apart), so this
+ * starts the tracker's "Live ship positions" job on GitHub every 15 minutes.
+ * Needs the script property GITHUB_TOKEN (Project Settings > Script properties): a GitHub
+ * fine-grained token for this repository with "Actions: Read and write".
+ * Run startLiveShipTimer once to switch it on (stopLiveShipTimer switches it off).
+ */
+const GH_REPO = 'rashidpallikkal143-arch/bst-shipment-tracker';
+function kickLiveShips() {
+  const token = PropertiesService.getScriptProperties().getProperty('GITHUB_TOKEN');
+  if (!token) throw new Error('Add the script property GITHUB_TOKEN first.');
+  const r = UrlFetchApp.fetch('https://api.github.com/repos/' + GH_REPO + '/actions/workflows/vessels.yml/dispatches', {
+    method: 'post', contentType: 'application/json', muteHttpExceptions: true, payload: JSON.stringify({ ref: 'main' }),
+    headers: { Authorization: 'Bearer ' + token, Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' } });
+  if (r.getResponseCode() !== 204) throw new Error('GitHub answered ' + r.getResponseCode() + ': ' + r.getContentText().slice(0, 200));
+}
+function startLiveShipTimer() {
+  stopLiveShipTimer();
+  ScriptApp.newTrigger('kickLiveShips').timeBased().everyMinutes(15).create();
+  kickLiveShips();
+  Logger.log('Live ship timer is on: the tracker job starts every 15 minutes.');
+}
+function stopLiveShipTimer() { ScriptApp.getProjectTriggers().filter(function (t) { return t.getHandlerFunction() === 'kickLiveShips'; }).forEach(function (t) { ScriptApp.deleteTrigger(t); }); }
