@@ -51,6 +51,7 @@
     'body.m .rpd{padding:14px;margin:0 6px 20px}body.m .rpd table{display:block;overflow-x:auto}' +
     '@media print{body.rp-print>*:not(#ovrp){display:none!important}body.rp-print #ovrp{position:static;display:block!important;background:#fff;overflow:visible}body.rp-print #ovrp .noprint{display:none!important}' +
     'body.rp-print .rpd{box-shadow:none;margin:0;padding:0;max-width:none;border-radius:0}body.rp-print .rpd table{display:table}.rpd tr{break-inside:avoid}@page{size:A4;margin:12mm}}';
+  css.textContent += '.xinv{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin:12px 0 4px;padding:10px 12px;border:1px dashed #1f9d55;border-radius:10px;background:#f2fbf5}.xinv .mu{font-size:12px;flex:1;min-width:200px}.xinv-st{flex-basis:100%;font-size:13px}.xinv-st:empty{display:none}.xinv-st .bad{color:#c0392b}.xfill{background:#fff6cc!important;box-shadow:0 0 0 2px #f0c43c inset}';
   document.head.appendChild(css);
 
   // ------------------------------------------------------------------ overlays
@@ -391,7 +392,7 @@
         var info = /^(pro|exp|mfg|lot|batch|hs\s*code|production|expiry|best\s*before|net|gross)\b/i.test(d);
         if (d && !info && /[a-z]{3}/i.test(d) && (!cur || cur.q)) { cur = { desc: d, q: '', pack: row[ci.pack] || '', unit: row[ci.unit] || '', pal: row[ci.pallets] || '' }; items.push(cur); idle = 0; }
         else if (d && !info && cur && !cur.q && /[a-z]{3}/i.test(d)) cur.desc += ' ' + d;
-        if (cur && qn && !cur.q) { cur.q = qn; idle = 0; } else if (!d) idle++;
+        if (cur && qn && !cur.q) { cur.q = qn; cur.qt = row[ci.qty]; idle = 0; } else if (!d) idle++;
         if (cur && !cur.pack && row[ci.pack]) cur.pack = row[ci.pack];
         if (items.length && idle > 4) break; }
       items = items.filter(function (i) { return i.q; });
@@ -434,7 +435,7 @@
     var top = A.slice(0, 18).map(function (r) { return r.join(' '); });
     if (!rec.poNo) top.some(function (t) { var m = /\b([A-Z]{2,8}[\/-][A-Z0-9][A-Z0-9\/-]{3,24})\b/.exec(t); if (m && !/\d{6,}/.test(m[1].replace(/\D/g, '').slice(0, 0) + '') && !/^(P\.?O|TEL|FAX)/i.test(m[1])) { rec.poNo = m[1]; return true; } });
     if (!rec.poDate) top.some(function (t) { var m = /\b(\d{1,2}\s*[\/.-]\s*\d{1,2}\s*[\/.-]\s*\d{4}|[A-Za-z]{3,9}\.?,?\s*\d{1,2},?\s*\d{4})\b/.exec(t); if (m) { var d = cellIn(m[1], 'd'); if (/^\d{4}-\d\d-\d\d$/.test(d)) { rec.poDate = d; return true; } } });
-    if (!rec.supplier) A.slice(0, 8).some(function (r) { var t = r.join(' '); if (/(ltd|limited|llc|l\.l\.c|co\.|company|industries|foods?|agro|pvt|gmbh|s\.a\.|inc\b|corp)/i.test(t) && !/baniyas|al-saih|buyer|consignee|to:/i.test(t) && t.length < 70) { rec.supplier = t.replace(/\s*\(.*?star export.*?\)/i, '').trim(); return true; } });
+    if (!rec.supplier) A.slice(0, 8).some(function (r) { var t = r.join(' '); if (/(ltd|limited|llc|l\.l\.c|co\.|company|industries|foods?|agro|pvt|gmbh|s\.a\.|inc\b|corp)/i.test(t) && !/baniyas|al-saih|buyer|consignee|to:/i.test(t) && t.length < 70) { rec.supplier = t.replace(/\s*\(.*?star export.*?\)/i, '').replace(/^[a-z ]{3,20}:\s*/i, '').trim(); return true; } });
     if (rec.supplier) rec.supplier = rec.supplier.replace(/^[:\-\s]+/, '').replace(/\s+\./g, '.').replace(/\s*,\s*/g, ', ').replace(/\.$/, '').trim();
     if (!rec.port && H.shipment) { var pm = /\bto\s+([a-z .'-]+?)(?:,|\s+by\b|$)/i.exec(H.shipment); if (pm) rec.port = pm[1].replace(/\s+/g, ' ').trim().replace(/\b\w/g, function (c) { return c.toUpperCase(); }).replace(/^Jebel Ali$/, 'Jebel Ali Port'); }
     // items: the table, else the Excel-style reader, else "Product / Quantity / Packing" lines
@@ -443,7 +444,7 @@
     if (tb) items = tb.items.map(function (i) { var desc = i.desc.replace(/^[^A-Za-z0-9]+/, '').replace(/\s+/g, ' ').trim(), pack = String(i.pack || '').trim(), pm2 = PACKRE.exec(desc);
       if (!pack && pm2) { pack = pm2[1].replace(/\s*[x×*]\s*/, ' x ').replace(/(\d)(g|gm|gms|gr|kg|kgs|ml|l|ltr|lt|oz)\b/i, '$1 $2').toLowerCase(); desc = desc.replace(pm2[1], '').replace(/\s+/g, ' ').trim(); }
       if (/^\d+$/.test(pack)) pack = pack + ' per carton';
-      var u = String(i.unit || '').toUpperCase() || unitFrom(tb.qtyHdr);
+      var u = String(i.unit || '').toUpperCase() || unitFrom(i.qt) || unitFrom(tb.qtyHdr);
       var it = { desc: desc.replace(/\b([A-Z])([A-Z]+)\b/g, function (w, a, b) { return a + b.toLowerCase(); }), pack: pack, qty: i.q, unit: u, ctn: '', pallets: String(i.pal || '').replace(/[^\d.]/g, '') };
       if (sc === 'eg' && (!u || u === 'CTN')) { it.ctn = i.q; it.qty = ''; it.unit = 'CTN'; } return it; });
     else if (fr.items.length) items = fr.items;
@@ -668,5 +669,100 @@
   // after a save, refresh the tracker list when it is open
   if (typeof window.renderAll === 'function') { var origRA = window.renderAll;
     window.renderAll = function () { var out = origRA.apply(this, arguments); try { if ($('ovtr') && $('ovtr').style.display === 'block' && typeof trRender === 'function') trRender(true); } catch (e) {} setTimeout(refreshBadges, 300); return out; }; }
+
+  // ================================================================== FILL A CONTAINER ENTRY FROM AN INVOICE / PACKING LIST / B/L
+  var ISOV = '0123456789A?BCDEFGHIJK?LMNOPQRSTU?VWXYZ';
+  function isoOk(c) { var s = 0; for (var i = 0; i < 10; i++) { var v = ISOV.indexOf(c[i]); if (v < 0) return false; s += v * Math.pow(2, i); } return (s % 11) % 10 === Number(c[10]); }
+  function shipDoc(doc, fname, sc) {
+    var po = parseDocPO(doc, fname, sc), r = po.rec || {}, base = String(fname || '').replace(/\.[^.]+$/, '').trim();
+    var all = [], off = 0; doc.pages.forEach(function (pg) { pg.forEach(function (l) { all.push(l.cells.map(function (c) { return c.t; })); }); });
+    var text = all.map(function (r2) { return r2.join(' | '); }).join('\n'), up = text.toUpperCase();
+    var o = { inv: r.poNo && r.poNo !== base ? r.poNo : '', invDate: r.poDate || '', supplier: r.supplier || '', shipper: r.shipper || '', brand: r.brand || '', port: r.port || '', etd: r.sched || '',
+      origin: r.origin && r.origin !== 'Egypt' ? r.origin : r.country || '', items: (r.items || []).filter(function (i) { return i.desc; }), conts: [], size: '', bl: '', vessel: '', voyage: '', batch: '', amount: '', seal: '' };
+    if (sc === 'eg' && !o.origin && r.origin) o.origin = r.origin;
+    if (/\bPI-\d/.test(o.inv) && !/proforma/i.test(text)) o.inv = '';
+    // containers (ISO 6346 with a valid check digit)
+    var seen = {}, cand = [], m, re = /\b([A-Z]{3}[UJZ])\s?(\d{6})\s?-?\s?(\d)(?!\d)/g;
+    while ((m = re.exec(up))) { var c = m[1] + m[2] + m[3]; if (seen[c]) continue; seen[c] = 1; (isoOk(c) ? o.conts : cand).push(c); }
+    if (!o.conts.length) o.conts = cand.slice(0, 3);
+    var sz = /(\d+)\s*[X×*]\s*(20|40|45)(?!\d)\s*['’"]?\s*(HC|HQ|GP|DV|RF|RH|STD|FT|FCL)?/.exec(up) || /\b(20|40|45)\s*['’"]\s*(HC|HQ|GP|DV|RF|RH|STD)?/.exec(up);
+    var tc = function (v) { v = String(v || ''); return v && v === v.toUpperCase() && /[A-Z]{3}/.test(v) ? v.toLowerCase().replace(/(^|[\s(\/-])([a-z])/g, function (a, b, c) { return b + c.toUpperCase(); }).replace(/\b(Co|Ltd|Llc|Pvt|Inc|Fze|Fzco)\b\.?/g, function (w) { return w.toUpperCase() === 'LLC' || w.toUpperCase() === 'FZE' || w.toUpperCase() === 'FZCO' ? w.toUpperCase() : w; }) : v; };
+    if (sz) { var ft = sz.length > 3 ? sz[2] : sz[1], ty = (sz.length > 3 ? sz[3] : sz[2]) || '', S = (window.D && D.sizes) || [];
+      o.size = S.filter(function (z) { return z.indexOf(ft) === 0 && ty && /HC|HQ/.test(ty) && /HC|HQ|high/i.test(z); })[0] || S.filter(function (z) { return z.indexOf(ft) === 0 && !/HC|HQ|high|reef|RF/i.test(z); })[0] || S.filter(function (z) { return z.indexOf(ft) === 0; })[0] || ''; }
+    var lines2 = text.split('\n'), lab = function (rx) { var x = null; lines2.some(function (ln) { x = rx.exec(ln); return !!x; }); return x ? x[x.length - 1].replace(/^[\s:|.#-]+/, '').replace(/\s*\|.*$/, '').trim() : ''; };
+    o.bl = lab(/\b(?:b\s*\/\s*l|bill\s*of\s*lading|bl)\s*(?:no|number|#)\.?\s*[:.]?\s*\|?\s*([A-Z0-9][A-Z0-9-]{5,24})/i);
+    var vs = lab(/\b(?:ocean\s*)?vessel(?:\s*name)?(?:\s*(?:\/|&|and)\s*voy(?:age)?(?:\s*no)?)?\.?\s*[:.]?\s*\|?\s*([A-Z][A-Z0-9 .'-]{2,40}(?:\s*(?:V\.?|VOY\.?|\/)\s*[A-Z0-9]{2,10})?)/i);
+    if (vs && !/^(by|for|the|name|voyage)\b/i.test(vs)) { var vv = /^(.*?)(?:\s*(?:\/|\bV\.?|\bVOY\.?)\s*([A-Z0-9]{2,10}))?$/i.exec(vs); o.vessel = vv[1].trim(); o.voyage = vv[2] || ''; }
+    if (!o.voyage) o.voyage = lab(/\bvoy(?:age)?\s*(?:no|number)?\.?\s*[:.]?\s*\|?\s*([A-Z0-9]{2,12})\b/i);
+    o.batch = lab(/\b(?:lot|batch)\s*(?:no|number)?\.?\s*[:.]?\s*([A-Z0-9][A-Z0-9\/-]{2,20})/i);
+    o.seal = lab(/\bseal\s*(?:no|number)?\.?\s*[:.]?\s*\|?\s*([A-Z0-9-]*\d[A-Z0-9-]{3,14})/i);
+    if (!o.port) { var pd = lab(/\bport\s*of\s*(?:discharge|destination)\s*[:.]?\s*\|?\s*([A-Z][A-Za-z .,'-]{2,40})/i); if (pd) o.port = pd.replace(/,.*$/, '').trim().replace(/\b\w+/g, function (w) { return w.charAt(0) + w.slice(1).toLowerCase(); }).replace(/^Jebel Ali$/, 'Jebel Ali Port'); }
+    // invoice amount: a labelled total, or the largest amount on the TOTAL line
+    var am = lab(/\b(?:total\s*(?:invoice\s*)?(?:amount|value)|invoice\s*(?:amount|value)|grand\s*total|contract\s*value|contact\s*value)\s*(?:\(?[A-Z$]{0,4}\)?)?\s*[:.]?\s*\|?\s*(?:US\s*\$|USD|\$|EGP)?\s*([\d,]+(?:\.\d+)?)/i);
+    if (!am) all.forEach(function (row) { if (!/^(grand\s*)?total\b/i.test(row[0] || '')) return; row.forEach(function (c) { var n = /^[\d,]+\.\d{2}$/.test(c.trim()) ? Number(c.replace(/,/g, '')) : 0; if (n > (Number(am) || 0)) am = String(n); }); });
+    o.amount = am ? String(am).replace(/,/g, '') : '';
+    o.origin = tc(o.origin); o.port = tc(o.port); o.vessel = String(o.vessel || '').toUpperCase();
+    o.warn = po.warn.filter(function (w) { return !/PO \/ PI number not found|supplier not found|no items found/.test(w); });
+    o.ocr = (doc.pageOcr || []).every(Boolean);
+    return o; }
+  window.BSTINV = { read: function (doc, name, sc) { return shipDoc(doc, name, sc); } };
+  function mergeDocs(list) { var o = { conts: [], items: [] };
+    list.forEach(function (d) { Object.keys(d).forEach(function (k) { if (k === 'conts') d.conts.forEach(function (c) { if (o.conts.indexOf(c) < 0) o.conts.push(c); }); else if (k === 'items') { if (d.items.length > o.items.length) o.items = d.items; } else if (!o[k] && d[k]) o[k] = d[k]; }); });
+    return o; }
+  function invBar(sc) { return '<div class="xinv" data-sc="' + sc + '"><button type="button" class="p" data-xinv="' + sc + '">📄 Fill from invoice / B/L (PDF or photo)</button><span class="mu">Reads the commercial invoice, packing list or bill of lading and fills the empty fields. You can pick several files.</span><input type="file" class="xinv-f" multiple accept=".pdf,.png,.jpg,.jpeg,.webp" style="display:none"><div class="xinv-st"></div></div>'; }
+  function fillForm(sc, o, names) {
+    var n = 0, kept = [], mark = function (el) { el.classList.add('xfill'); el.addEventListener('input', function () { el.classList.remove('xfill'); }, { once: true }); n++; };
+    var set = function (el, v, label) { if (!el || v == null || v === '') return; v = String(v); var cur = String(el.value || '').trim();
+      if (!cur) { if (el.tagName === 'SELECT' && ![].some.call(el.options, function (op) { return op.value === v || op.text === v; })) el.insertAdjacentHTML('beforeend', '<option>' + esc(v) + '</option>'); el.value = v; mark(el); }
+      else if (cur.toLowerCase() !== v.toLowerCase()) kept.push(label + ': form has "' + cur + '", document says "' + v + '"'); };
+    var itemsOk = o.items.length, Q = function (s) { return document.querySelector(s); };
+    if (sc === 'eg') { var E2 = function (k) { return Q('#eform [data-e="' + k + '"]'); };
+      set(E2('inv'), o.inv, 'Invoice no.'); set(E2('supplier'), o.supplier, 'Supplier'); set(E2('origin'), o.origin, 'Origin'); set(E2('brand'), o.brand, 'Brand'); set(E2('batch'), o.batch, 'Batch'); set(E2('invAmt'), o.amount, 'Invoice amount');
+      set(E2('container'), o.conts[0], 'Container no.'); if (o.conts.length > 1) kept.push('More containers in the document: ' + o.conts.slice(1).join(', ') + ' (one container per Egypt entry)');
+      if (itemsOk) { var rows = [].slice.call(document.querySelectorAll('#eits .er')), filled = rows.filter(function (x) { return x.querySelector('.in').value.trim(); });
+        if (!filled.length || confirm('Replace the ' + filled.length + ' item line(s) in the form with the ' + itemsOk + ' item(s) read from the document?')) {
+          rows.forEach(function (x) { x.remove(); });
+          o.items.forEach(function (i) { var c = i.ctn || (/^(CTN|CARTON|CASE|BOX)$/i.test(i.unit || '') || !i.unit ? i.qty : ''); egAddItem({ n: i.desc, p: i.pack, c: c, l: i.pallets }); });
+          document.querySelectorAll('#eits .er input').forEach(function (x) { if (x.value) mark(x); }); window.EITEMS = true; try { EITEMS = true; } catch (e) {} egTotals(); } }
+      if (window.DIRTY) DIRTY.ov3 = true;
+    } else { var F = function (k) { return Q('#f [data-k="' + k + '"]'); };
+      set(F('supplier'), o.supplier, 'Supplier'); set(F('shipper'), o.shipper, 'Shipper'); set(F('country'), o.origin, 'Origin country'); set(F('etd'), o.etd, 'ETD');
+      set(F('vessel'), o.vessel, 'Vessel'); set(F('voyage'), o.voyage, 'Voyage'); set(F('bl'), o.bl, 'B/L no.'); var pl = [].map.call(document.querySelectorAll('#dl-port option'), function (x) { return x.value; }), pk = String(o.port || '').toLowerCase(); if (pk) o.port = pl.filter(function (x) { return x.toLowerCase().indexOf(pk) === 0 || pk.indexOf(x.toLowerCase().replace(/\s*(port|\(.*\))\s*$/g, '')) === 0; })[0] || o.port;
+      set(F('port'), o.port, 'Final port');
+      if (o.inv && invList().indexOf(o.inv) < 0) { var ei = [].filter.call(document.querySelectorAll('#invs .iv'), function (x) { return !x.value.trim(); })[0]; if (!ei) { addInv(''); ei = [].slice.call(document.querySelectorAll('#invs .iv')).pop(); } ei.value = o.inv; mark(ei); syncInvSel(); }
+      o.conts.forEach(function (c) { var have = [].map.call(document.querySelectorAll('#cns .cno'), function (x) { return x.value.trim().toUpperCase(); }); if (have.indexOf(c) >= 0) return;
+        var row = [].filter.call(document.querySelectorAll('#cns .cnr'), function (x) { return !x.querySelector('.cno').value.trim(); })[0]; if (!row) { addCont({}); row = [].slice.call(document.querySelectorAll('#cns .cnr')).pop(); }
+        row.querySelector('.cno').value = c; mark(row.querySelector('.cno')); if (o.size) set(row.querySelector('.cz'), o.size, 'Container size'); if (o.seal && o.conts.length === 1) set(row.querySelector('.cs'), o.seal, 'Seal no.'); });
+      cnCount();
+      if (itemsOk) { var rws = [].slice.call(document.querySelectorAll('#its .ir')), fl = rws.filter(function (x) { return x.querySelector('.d').value.trim(); });
+        if (!fl.length || confirm('Replace the ' + fl.length + ' item line(s) in the form with the ' + itemsOk + ' item(s) read from the document?')) {
+          rws.forEach(function (x) { x.remove(); });
+          o.items.forEach(function (i) { var u = (i.unit || '').toUpperCase(), q = i.qty || i.ctn; if (!u && i.ctn) u = 'CTN'; addItem({ desc: i.desc + (i.pack ? ' (' + i.pack + ')' : ''), qty: q, unit: u, inv: o.inv }); var us = [].slice.call(document.querySelectorAll('#its .ir .u')).pop(); if (us && u && us.value !== u) { if (![].some.call(us.options, function (op) { return op.value === u; })) us.insertAdjacentHTML('beforeend', '<option>' + esc(u) + '</option>'); us.value = u; } });
+          document.querySelectorAll('#its .ir .d, #its .ir .q').forEach(function (x) { if (x.value) mark(x); }); } }
+      if (window.DIRTY) DIRTY.ov = true; }
+    var h = n ? '<b>' + n + ' field(s) filled</b> from ' + esc(names.join(', ')) + '. The filled fields are highlighted in yellow: please check them' + (o.ocr ? ' carefully (read from a scan, numbers can be misread)' : '') + ', then Save.'
+      : 'Nothing new was filled from ' + esc(names.join(', ')) + ': the fields were already filled or could not be read.';
+    if (kept.length) h += '<div class="mu" style="margin-top:4px">Not changed:<br>' + kept.map(esc).join('<br>') + '</div>';
+    return h; }
+  document.addEventListener('click', function (e) { var b = e.target.closest('[data-xinv]'); if (!b) return; var bar = b.closest('.xinv'), f = bar.querySelector('.xinv-f'); f.value = ''; f.click(); });
+  document.addEventListener('change', function (e) { var f = e.target; if (!f.classList || !f.classList.contains('xinv-f')) return;
+    var bar = f.closest('.xinv'), sc = bar.dataset.sc, st = bar.querySelector('.xinv-st'), btn = bar.querySelector('[data-xinv]'), files = [].slice.call(f.files || []);
+    if (!files.length) return; if (!window.BSTPDF) { st.innerHTML = '<span class="bad">The document reader is not loaded. Reload the page.</span>'; return; }
+    btn.disabled = true; var got = [], i = 0, say = function (m) { st.textContent = m; };
+    var next = function () { if (i >= files.length) return Promise.resolve();
+      var fl = files[i++], pre = files.length > 1 ? 'File ' + i + ' of ' + files.length + ': ' : ''; say(pre + 'reading ' + fl.name + '…');
+      return BSTPDF.read(fl, function (m) { say(pre + m); }).then(function (d) { got.push(shipDoc(d, fl.name, sc)); }, function (er) { got.push({ conts: [], items: [], warn: [fl.name + ': ' + (er.message || 'could not be read')] }); }).then(next); };
+    next().then(function () { var o = mergeDocs(got), w = [].concat.apply([], got.map(function (g) { return g.warn || []; }));
+      st.innerHTML = fillForm(sc, o, files.map(function (x) { return x.name; })) + (w.length ? '<div class="mu">' + w.map(esc).join('<br>') + '</div>' : ''); })
+      .catch(function (er) { st.innerHTML = '<span class="bad">' + esc(er.message || String(er)) + '</span>'; })
+      .then(function () { btn.disabled = false; }); });
+  // put the bar on both entry forms
+  if (typeof window.openEg === 'function') { var origEg = window.openEg;
+    window.openEg = function () { var out = origEg.apply(this, arguments);
+      try { var fm = $('eform'), g = fm && fm.querySelector('.g'); if (g && canEdit('eg') && window.BSTPDF && !fm.querySelector('.xinv')) g.insertAdjacentHTML('beforebegin', invBar('eg')); } catch (e) {} return out; }; }
+  if (typeof window.openEdit === 'function') { var origEd = window.openEdit;
+    window.openEdit = function () { var out = origEd.apply(this, arguments);
+      try { var f0 = $('f'), old = f0 && f0.parentNode.querySelector('.xinv'); if (old) old.remove();
+        if (f0 && canEdit('rx') && window.BSTPDF) f0.insertAdjacentHTML('beforebegin', invBar('rx')); } catch (e) {} return out; }; }
   setTimeout(refreshBadges, 2500);
 })();

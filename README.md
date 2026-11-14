@@ -106,3 +106,10 @@ To restore: GitHub → **Actions → Daily backup** → open a run → **Artifac
 In **📋 Purchase orders / schedules → ⬆ Bulk import from Excel** you can pick PDF files and photos (.pdf, .jpg, .png, .webp) as well as Excel files, several at once.
 Text PDFs are read directly (pdf.js); scanned pages and photos are read with OCR (tesseract.js, runs in the browser, nothing is uploaded).
 The PO / PI number, date, supplier, port, items, pack sizes and quantities are taken from the document. Every PO read from a PDF or scan shows **Review & save**: check the fields (OCR can misread numbers) and save. POs saved this way are skipped by **Import**.
+
+## Filling a container entry from an invoice, packing list or B/L
+
+The Egypt container entry form and the Global shipment form have a **📄 Fill from invoice / B/L (PDF or photo)** button at the top.
+Pick one or more documents (commercial invoice, packing list, bill of lading). The app reads them in the browser and fills only the empty fields:
+invoice no., supplier / shipper, origin, brand, batch / lot no., invoice amount (Egypt), container no. (checked with the ISO check digit), size, seal, B/L no., vessel and voyage, final port, and the item lines with pack size and CTN / quantity.
+Filled fields are highlighted in yellow. Values that differ from what is already in the form are listed, not overwritten. Nothing is saved until you click Save.
