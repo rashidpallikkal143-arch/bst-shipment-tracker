@@ -61,7 +61,7 @@
     '<div class="ovl" id="ovpf"><div class="box" id="pf"></div></div>' +
     '<div class="ovl" id="ovxl"><div class="box"><div class="xh"><h2 id="xl-t">Excel import &amp; export</h2><span><button data-x="ovxl" type="button">Close</button></span></div>' +
     '<div class="mu" style="margin-top:4px"><b>Export</b> downloads an Excel file you can share, or edit and import back. <b>Import</b> adds new rows and updates rows that still have their ID column. Tip: export first and use that file as the template.</div>' +
-    '<div class="xlt" id="xl-c"></div><div id="xl-p"></div><input type="file" id="xl-f" accept=".xlsx,.xls,.xlsm,.csv" multiple style="display:none"></div></div>' +
+    '<div class="xlt" id="xl-c"></div><div id="xl-p"></div><input type="file" id="xl-f" accept=".xlsx,.xls,.xlsm,.csv,.pdf,.png,.jpg,.jpeg,.webp" multiple style="display:none"></div></div>' +
     '<div id="ovrp"><div class="rpbar noprint"><b>📄 Summary report</b><button class="pr" id="rp-pr" type="button">🖨 Print / Save as PDF</button><button class="cl" id="rp-x" type="button">Close</button></div>' +
     '<div class="rpf noprint" id="rp-f"></div><div id="rp-o"></div></div>');
   if (window.FORMS) window.FORMS.ovpf = 'pf-sv';
@@ -150,12 +150,12 @@
   function poRowHtml(sc, i) { i = i || {};
     return sc === 'eg'
       ? '<div class="prow"><label>Item<input class="pi-d" value="' + esc(i.desc) + '" placeholder="e.g. Green Peas"></label><label>Pack size<input class="pi-p" value="' + esc(i.pack) + '" placeholder="e.g. 4 x 2.5 kg"></label><label>CTN<input class="pi-c" type="number" min="0" step="any" value="' + esc(i.ctn) + '"></label><label>Pallets<input class="pi-l" type="number" min="0" step="any" value="' + esc(i.pallets) + '"></label><label>Qty (other)<input class="pi-q" type="number" min="0" step="any" value="' + esc(i.qty) + '"></label><button type="button" class="x" title="Remove line">✕</button></div>'
-      : '<div class="prow rx"><label>Item description<input class="pi-d" value="' + esc(i.desc) + '"></label><label>Pack size<input class="pi-p" value="' + esc(i.pack) + '"></label><label>Qty<input class="pi-q" type="number" min="0" step="any" value="' + esc(i.qty) + '"></label><label>Unit<select class="pi-u">' + (window.opts ? opts((window.D && D.units) || ['CTN', 'BAG', 'KG', 'MT', 'PCS'], i.unit) : '<option>' + esc(i.unit || '') + '</option>') + '</select></label><button type="button" class="x" title="Remove line">✕</button></div>'; }
-  function poForm(p) {
-    var sc = PO.sc, ro = !canEdit(sc), v = function (k) { return p && p[k] != null ? p[k] : ''; }, isNew = !p;
+      : '<div class="prow rx"><label>Item description<input class="pi-d" value="' + esc(i.desc) + '"></label><label>Pack size<input class="pi-p" value="' + esc(i.pack) + '"></label><label>Qty<input class="pi-q" type="number" min="0" step="any" value="' + esc(i.qty) + '"></label><label>Unit<select class="pi-u">' + (window.opts ? opts(((window.D && D.units) || ['CTN', 'BAG', 'KG', 'MT', 'PCS']).concat(i.unit && ((window.D && D.units) || ['CTN', 'BAG', 'KG', 'MT', 'PCS']).indexOf(i.unit) < 0 ? [i.unit] : []), i.unit) : '<option>' + esc(i.unit || '') + '</option>') + '</select></label><button type="button" class="x" title="Remove line">✕</button></div>'; }
+  function poForm(p, onSaved, srcName) {
+    var sc = PO.sc, ro = !canEdit(sc), v = function (k) { return p && p[k] != null ? p[k] : ''; }, isNew = !p || !p.id;
     var months = sc === 'eg' && window.E ? E.months : [];
     var f = function (k, lab, type, extra) { return '<label>' + lab + '<input data-p="' + k + '" value="' + esc(v(k)) + '"' + (type ? ' type="' + type + '"' : '') + (extra || '') + '></label>'; };
-    $('pf').innerHTML = '<div class="xh"><h2>' + (isNew ? 'New purchase order / schedule' : esc(p.poNo)) + ' · ' + SECN[sc] + '</h2><span><button type="button" id="pf-x">Close</button></span></div>' +
+    $('pf').innerHTML = '<div class="xh"><h2>' + (isNew ? (srcName ? 'Check and save · ' + esc(srcName) : 'New purchase order / schedule') : esc(p.poNo)) + ' · ' + SECN[sc] + '</h2><span><button type="button" id="pf-x">Close</button></span></div>' + (srcName ? '<div class="xban" style="margin:8px 0">These details were read from the document. Please check every field (especially quantities and dates) and correct anything that is wrong, then Save.</div>' : '') +
       '<div class="g" style="margin-top:12px"><label>Type<select data-p="kind">' + ['Purchase order', 'Schedule'].map(function (x) { return '<option' + (x === (v('kind') || (sc === 'eg' ? 'Schedule' : 'Purchase order')) ? ' selected' : '') + '>' + x + '</option>'; }).join('') + '</select></label>' +
       f('poNo', 'PO / schedule no. *', '', ' placeholder="e.g. BST/PO/2026-118"') + f('poDate', 'PO date', 'date') + f('supplier', 'Supplier', '', ' list="dl-sup"') +
       (sc === 'eg' ? f('brand', 'Brand') + f('origin', 'Origin', '', isNew ? ' placeholder="Egypt"' : '') +
@@ -164,10 +164,10 @@
       '<label>Status<select data-p="status">' + PST.map(function (x) { return '<option' + (x === (v('status') || 'Open') ? ' selected' : '') + '>' + x + '</option>'; }).join('') + '</select></label>' +
       '<label style="grid-column:1/-1">Remarks<input data-p="remarks" value="' + esc(v('remarks')) + '"></label></div>' +
       '<div class="sech" style="display:flex;justify-content:space-between;align-items:center;margin-top:14px"><b>Items ordered</b><button type="button" id="pf-ai">+ Add item</button></div><div id="pf-it"></div>' +
-      (p && linkedOf(p).length ? '<h3 class="sec">Made from this ' + esc((p.kind || 'PO').toLowerCase()) + '</h3>' + linkedOf(p).map(function (r) { return '<div class="li"><span>' + (sc === 'eg' ? esc((r.inv || '') + ' · ' + (r.container || r.vehicle || 'SR ' + r.sr) + ' · ' + r.month) : esc(r.key + ' · ' + (r.stage || ''))) + '</span><span class="mu">' + esc(sc === 'eg' ? (r.position || '') : (r.ref || '')) + '</span></div>'; }).join('') : '') +
+      (p && p.id && linkedOf(p).length ? '<h3 class="sec">Made from this ' + esc((p.kind || 'PO').toLowerCase()) + '</h3>' + linkedOf(p).map(function (r) { return '<div class="li"><span>' + (sc === 'eg' ? esc((r.inv || '') + ' · ' + (r.container || r.vehicle || 'SR ' + r.sr) + ' · ' + r.month) : esc(r.key + ' · ' + (r.stage || ''))) + '</span><span class="mu">' + esc(sc === 'eg' ? (r.position || '') : (r.ref || '')) + '</span></div>'; }).join('') : '') +
       (p && p.links && p.links.length ? '<div class="mu" style="margin-top:6px">History: ' + p.links.map(function (x) { return esc(x.label || x.ref) + ' (' + esc((x.at || '').slice(0, 10)) + ', ' + esc(x.by || '') + ')'; }).join(' · ') + '</div>' : '') +
-      '<div style="display:flex;justify-content:space-between;gap:8px;margin-top:16px;flex-wrap:wrap"><button type="button" id="pf-del" style="' + (p && canDel(sc) ? '' : 'visibility:hidden') + '">Delete</button>' +
-      '<span>' + (p && !ro && p.status !== 'Cancelled' ? '<button type="button" id="pf-mk">➜ Make ' + (sc === 'eg' ? 'container entry' : 'shipment') + '</button> ' : '') + '<button type="button" id="pf-cx">Cancel</button> ' + (ro ? '' : '<button class="p" id="pf-sv" type="button">' + (isNew ? 'Save PO / schedule' : 'Save changes') + '</button>') + '</span></div>';
+      '<div style="display:flex;justify-content:space-between;gap:8px;margin-top:16px;flex-wrap:wrap"><button type="button" id="pf-del" style="' + (p && p.id && canDel(sc) ? '' : 'visibility:hidden') + '">Delete</button>' +
+      '<span>' + (p && p.id && !ro && p.status !== 'Cancelled' ? '<button type="button" id="pf-mk">➜ Make ' + (sc === 'eg' ? 'container entry' : 'shipment') + '</button> ' : '') + '<button type="button" id="pf-cx">Cancel</button> ' + (ro ? '' : '<button class="p" id="pf-sv" type="button">' + (isNew ? 'Save PO / schedule' : 'Save changes') + '</button>') + '</span></div>';
     var add = function (i) { var w = document.createElement('div'); w.innerHTML = poRowHtml(sc, i); var r = w.firstChild; r.querySelector('.x').onclick = function () { r.remove(); if (window.DIRTY) DIRTY.ovpf = true; }; $('pf-it').appendChild(r); };
     (p && p.items.length ? p.items : [{}]).forEach(add);
     if (ro) $('pf').querySelectorAll('input,select').forEach(function (x) { x.disabled = true; });
@@ -181,9 +181,9 @@
       return o; };
     if ($('pf-sv')) $('pf-sv').onclick = function () { var o = collect(), btn = this; if (!o.poNo) { alert('Enter the PO / schedule number.'); return; } if (!o.items.length) { alert('Add at least one item.'); return; }
       btn.disabled = true; btn.textContent = 'Saving…';
-      call('savePO', o).then(function () { if (window.DIRTY) DIRTY.ovpf = false; hideOv('ovpf'); loadPOs(); }).catch(function (e) { btn.disabled = false; btn.textContent = 'Save'; alert(e.message); }); };
+      call('savePO', o).then(function () { if (window.DIRTY) DIRTY.ovpf = false; hideOv('ovpf'); if (onSaved) onSaved(); else loadPOs(); }).catch(function (e) { btn.disabled = false; btn.textContent = 'Save'; alert(e.message); }); };
     if ($('pf-mk')) $('pf-mk').onclick = function () { if (window.DIRTY && DIRTY.ovpf && !confirm('Your changes to this PO are not saved. Continue without saving them?')) return; hideOv('ovpf'); makeFromPO(p); };
-    if (p && canDel(sc)) $('pf-del').onclick = function () { if (!confirm('Delete ' + p.poNo + '?' + (linkedOf(p).length ? '\nThe container entries / shipments made from it stay.' : ''))) return;
+    if (p && p.id && canDel(sc)) $('pf-del').onclick = function () { if (!confirm('Delete ' + p.poNo + '?' + (linkedOf(p).length ? '\nThe container entries / shipments made from it stay.' : ''))) return;
       call('deletePO', p.id).then(function () { hideOv('ovpf'); loadPOs(); }).catch(function (e) { alert(e.message); }); };
     showOv('ovpf');
   }
@@ -241,9 +241,10 @@
     $('xl-c').innerHTML = XT[sc].filter(function (t) { return !t.view || B.can(t.view); }).map(function (t) { return '<div class="xlc"><h3>' + esc(t.t) + '</h3><div class="mu">' + esc(t.d) + '</div><div class="ab"><button type="button" class="p" data-xe="' + t.id + '">⬇ Export to Excel</button>' +
       (B.can(t.right) ? '<button type="button" data-xi="' + t.id + '">⬆ Import from Excel</button>' : '') + '</div></div>'; }).join('');
     showOv('ovxl'); loadXL().catch(function () {}); }
-  document.addEventListener('click', function (e) { var b = e.target.closest('[data-xe],[data-xi],[data-xt],#xl-go,#xl-cancel,#xl-one'); if (!b) return;
+  document.addEventListener('click', function (e) { var b = e.target.closest('[data-xe],[data-xi],[data-xt],[data-xrv],#xl-go,#xl-cancel,#xl-one'); if (!b) return;
+    if (b.dataset.xrv != null) { var pl0 = XL.plan, fi = pl0 && pl0.files[Number(b.dataset.xrv)]; if (fi) poForm(Object.assign({}, fi.rec), function () { fi.saved = true; pl0.jobs[fi.ji].done = true; showPlan(pl0); loadPOs(); }, fi.file); return; }
     if (b.id === 'xl-one') { var pl = XL.plan; if (pl && pl.recs) loadXL().then(function (X) { var wb = X.utils.book_new(); X.utils.book_append_sheet(wb, sheet(X, C_PO, poFlat(pl.recs.map(function (r) { return Object.assign({ items: [] }, r, { origin: r.origin || r.country }); }))), 'Purchase orders'); X.writeFile(wb, 'BST ' + (XL.sc === 'eg' ? 'Egypt' : 'Global') + ' purchase orders combined ' + today() + '.xlsx'); }); return; } var inPO = $('ovpo').contains(b); if (!inPO && !$('ovxl').contains(b)) return;
-    if (!b.id) { XL.out = inPO ? 'po-xp' : 'xl-p'; XL.sc = inPO ? PO.sc : XL.sc; }
+    if (!b.id && b.dataset.xrv == null) { XL.out = inPO ? 'po-xp' : 'xl-p'; XL.sc = inPO ? PO.sc : XL.sc; }
     if (b.id === 'xl-cancel') { $(XL.out).innerHTML = ''; XL.plan = null; return; }
     if (b.id === 'xl-go') { runImport(); return; }
     var t = XT[XL.sc].filter(function (x) { return x.id === (b.dataset.xe || b.dataset.xi || b.dataset.xt); })[0]; if (!t) return;
@@ -286,7 +287,11 @@
   function cellIn(v, type) { if (v === null || v === undefined) return '';
     if (v instanceof Date) { if (isNaN(v)) return ''; var d = new Date(Math.round(v.getTime() / 6e4) * 6e4); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
     if (type === 'd') { if (typeof v === 'number' && v > 20000 && v < 80000) { var dt = new Date(Math.round((v - 25569) * 864e5)); return dt.toISOString().slice(0, 10); }
-      var s = String(v).trim(), m = /^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{4})$/.exec(s); if (m) return m[3] + '-' + m[2].padStart(2, '0') + '-' + m[1].padStart(2, '0'); return s; }
+      var s = String(v).trim().replace(/\s*([\/.-])\s*/g, '$1'), m = /^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{4})$/.exec(s); if (m) return m[3] + '-' + m[2].padStart(2, '0') + '-' + m[1].padStart(2, '0');
+      var MN = { jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6, jul: 7, aug: 8, sep: 9, sept: 9, oct: 10, nov: 11, dec: 12 }, a = /^([a-z]{3,9})\.?,?\s*(\d{1,2}),?\s*(\d{4})$/i.exec(s.replace(/,/g, ', ').replace(/\s+/g, ' ')), b = /^(\d{1,2})(?:st|nd|rd|th)?[\s-]+([a-z]{3,9})\.?,?[\s-]+(\d{4})$/i.exec(s);
+      var mo = function (x) { return MN[String(x).toLowerCase().slice(0, 4)] || MN[String(x).toLowerCase().slice(0, 3)]; };
+      if (a && mo(a[1])) return a[3] + '-' + String(mo(a[1])).padStart(2, '0') + '-' + a[2].padStart(2, '0'); if (b && mo(b[2])) return b[3] + '-' + String(mo(b[2])).padStart(2, '0') + '-' + b[1].padStart(2, '0');
+      return s; }
     return String(v).trim(); }
   function readSheet(X, ws, cols) { var aoa = X.utils.sheet_to_json(ws, { header: 1, raw: true, defval: '' }); if (!aoa.length) return { rows: [], miss: cols.map(function (c) { return c[0]; }) };
     var hdr = aoa[0].map(normH), idx = cols.map(function (c) { var h = normH(c[0]); var i = hdr.indexOf(h); if (i < 0) i = hdr.findIndex(function (x) { return x && (x.indexOf(h) === 0 || h.indexOf(x) === 0); }); return i; });
@@ -296,9 +301,14 @@
   $('xl-f').onchange = function () { var files = [].slice.call(this.files || []), t = XL.t; if (!files.length || !t) return;
     if (!/po$/.test(t.id)) files = files.slice(0, 1);
     $(XL.out).innerHTML = '<div class="xlp">Reading ' + (files.length > 1 ? files.length + ' files' : esc(files[0].name)) + '…</div>';
-    Promise.all([loadXL()].concat(files.map(function (f) { return f.arrayBuffer(); }))).then(function (x) { var X = x[0];
-      var wbs = files.map(function (f, i) { try { return { name: f.name, wb: X.read(x[i + 1], { type: 'array', cellDates: true }) }; } catch (e) { return { name: f.name, err: 'could not be opened as an Excel file' }; } });
-      return planImport(t, X, wbs[0].wb, wbs); })
+    var isPO = /po$/.test(t.id), docs = window.BSTPDF ? files.filter(function (f) { return BSTPDF.isDoc(f.name); }) : [];
+    if (docs.length && !isPO) { $(XL.out).innerHTML = '<div class="xlp bad">PDF and photo reading is for purchase orders. For this table choose an Excel file.</div>'; return; }
+    var said = function (m) { var el = $(XL.out); if (el) el.innerHTML = '<div class="xlp">' + esc(m) + '</div>'; };
+    loadXL().then(function (X) { var wbs = [], i = 0;
+      var next = function () { if (i >= files.length) return planImport(t, X, wbs[0] && wbs[0].wb, wbs); var f = files[i++], pre = files.length > 1 ? 'File ' + i + ' of ' + files.length + ' (' + f.name + '): ' : f.name + ': ';
+        if (window.BSTPDF && BSTPDF.isDoc(f.name)) { said(pre + 'reading…'); return BSTPDF.read(f, function (m) { said(pre + m); }).then(function (d) { wbs.push({ name: f.name, doc: d }); }, function (e) { wbs.push({ name: f.name, err: e.message || 'could not be read' }); }).then(next); }
+        return f.arrayBuffer().then(function (b) { try { wbs.push({ name: f.name, wb: X.read(b, { type: 'array', cellDates: true }) }); } catch (e) { wbs.push({ name: f.name, err: 'could not be opened as an Excel file' }); } }).then(next); };
+      return next(); })
       .then(function (plan) { XL.plan = plan; showPlan(plan); }).catch(function (e) { $(XL.out).innerHTML = '<div class="xlp bad">' + esc(e.message) + '</div>'; }); };
   function templateSheet(wb) { var n = wb.SheetNames.filter(function (nm) { var ws = wb.Sheets[nm], r = ws && ws['!ref'] ? window.XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', range: 0 })[0] || [] : [];
       var h = r.map(normH); return h.indexOf('po schedule no') >= 0 && h.indexOf('item') >= 0; })[0]; return n ? wb.Sheets[n] : null; }
@@ -312,28 +322,30 @@
     if (!rec.supplier) out.warn.push(rec.poNo + ': supplier not found (you can add it later with Edit)');
     if (sc === 'eg' && !rec.month) rec.month = monOf(rec.sched) || monOf(rec.poDate);
     out.rec = rec; return out; }
-  function readFreeSheet(A, sc) {
+  function readFreeSheet(A, sc, maxRows) {
     var tx = function (v) { return v instanceof Date ? cellIn(v, 'd') : String(v == null ? '' : v).replace(/\s+/g, ' ').trim(); };
-    var LAB = [['poNo', /^(l\.?p\.?o|p\.?\s*o|purchase\s*order|order|schedule|indent)\s*(no|number|num|ref|reference|#)?\.?\s*[:#.]?$/i, ''], ['poDate', /^((p\.?\s*o|order|lpo)\s*)?date\s*[:.]?$/i, 'd'],
-      ['supplier', /^(supplier|vendor|seller|exporter|messrs|m\/s|to|bill\s*from|supplier\s*name|vendor\s*name)\s*[:.]?$/i, ''], ['shipper', /^(shipper|shipper\s*name)\s*[:.]?$/i, ''],
+    var LAB = [['poNo', /^((l\.?p\.?o|p\.?\s*o|purchase\s*order|order|schedule|indent)\s*(no|number|num|ref|reference|#)?|(proforma\s*|commercial\s*)?invoice\s*(no|number|#)|p\.?\s*i\.?\s*(no|number|#)|contract\s*(no|number)|proforma\s*invoice)\.?\s*[:#.]?$/i, ''], ['poDate', /^((p\.?\s*o|order|lpo)\s*)?date\s*[:.]?$/i, 'd'],
+      ['supplier', /^(supplier|vendor|seller|exporter|messrs|m\/s|bill\s*from|supplier\s*name|vendor\s*name|beneficiary|account\s*name)\s*[:.]?$/i, ''], ['shipper', /^(shipper|shipper\s*name)\s*[:.]?$/i, ''],
       ['origin', /^(origin|country\s*of\s*origin|origin\s*country|country)\s*[:.]?$/i, ''], ['sched', /^(delivery\s*date|etd|shipment\s*date|dispatch\s*date|loading\s*date|required\s*by|ship\s*date|expected\s*dispatch)\s*[:.]?$/i, 'd'],
-      ['port', /^(port\s*of\s*discharge|destination\s*port|discharge\s*port|pod|destination|delivery\s*port)\s*[:.]?$/i, ''], ['brand', /^brand\s*[:.]?$/i, ''], ['payment', /^(payment\s*terms?|terms\s*of\s*payment)\s*[:.]?$/i, '']];
+      ['port', /^(port\s*of\s*discharge|destination\s*port|discharge\s*port|pod|destination|delivery\s*port)\s*[:.]?$/i, ''], ['brand', /^brand\s*[:.]?$/i, ''], ['payment', /^(payment\s*terms?|terms\s*of\s*payment|payment)\s*[:.]?$/i, ''],
+      ['product', /^(product|commodity|goods|description\s*of\s*goods)\s*[:.]?$/i, ''], ['quantity', /^(quantity|qty|total\s*quantity)\s*[:.]?$/i, ''], ['packing', /^(packing|packaging|pack\s*size)\s*[:.]?$/i, ''], ['shipment', /^(shipment|shipping|route)\s*[:.]?$/i, '']];
     var isLabel = function (v) { return LAB.some(function (L) { return L[1].test(v); }); };
     var head = {}, HDR = { desc: /description|item|product|particular|commodity|goods|material/i, pack: /pack|packing|size|weight|spec/i, qty: /^(qty|quantity|qnty|no\.?\s*of|nos)|quantity/i,
       unit: /^(unit|uom|u\/m)$/i, ctn: /ctn|carton|case|boxes/i, pallets: /pallet|plt/i };
     var hdrRow = -1, col = {};
-    for (var r = 0; r < Math.min(A.length, 80); r++) { var row = A[r] || [], cells = row.map(tx);
+    for (var r = 0; r < Math.min(A.length, maxRows || 80); r++) { var row = A[r] || [], cells = row.map(tx);
       // label : value pairs
       cells.forEach(function (c, ci) { if (!c || c.length > 45) return; LAB.forEach(function (L) { if (head[L[0]]) return;
         var m = /^([^:]{2,40}):\s*(.+)$/.exec(c); if (m && L[1].test(m[1].trim() + ':')) { head[L[0]] = L[2] === 'd' ? cellIn(m[2].trim(), 'd') : m[2].trim(); return; }
         if (!L[1].test(c)) return;
-        for (var k = ci + 1; k < Math.min(row.length, ci + 7); k++) { var v = tx(row[k]); if (v && v !== ':' && !isLabel(v)) { head[L[0]] = L[2] === 'd' ? cellIn(row[k], 'd') : v; return; } }
-        var below = A[r + 1] && tx(A[r + 1][ci]); if (below && !isLabel(below)) head[L[0]] = L[2] === 'd' ? cellIn(A[r + 1][ci], 'd') : below; }); });
+        var okv = function (v) { return L[0] !== 'supplier' || /[A-Za-z]{4,}/.test(v); };
+        for (var k = ci + 1; k < Math.min(row.length, ci + 7); k++) { var v = tx(row[k]).replace(/^[:\-\s]+/, ''); if (v && !isLabel(v) && okv(v)) { head[L[0]] = L[2] === 'd' ? cellIn(v, 'd') : v; return; } }
+        var below = A[r + 1] && tx(A[r + 1][ci]); if (below && !isLabel(below) && okv(below) && !/^[A-Z ]{12,}$/.test(below)) head[L[0]] = L[2] === 'd' ? cellIn(A[r + 1][ci], 'd') : below; }); });
       // item table header
       if (hdrRow < 0) { var di = cells.findIndex(function (c) { return c && c.length < 40 && HDR.desc.test(c) && !/no\.?$|code/i.test(c); }),
           qi = cells.findIndex(function (c, k) { return k !== di && c && c.length < 30 && (HDR.qty.test(c) || HDR.ctn.test(c)); });
         if (di >= 0 && qi >= 0) { hdrRow = r; col.desc = di; cells.forEach(function (c, k) { if (!c || k === di) return;
-          if (col.pallets == null && HDR.pallets.test(c)) col.pallets = k; else if (col.ctn == null && HDR.ctn.test(c) && !/price|rate|amount|value/i.test(c)) col.ctn = k;
+          if (col.pallets == null && HDR.pallets.test(c)) col.pallets = k; else if (col.pack == null && /per\s*carton|units?\s*\//i.test(c)) col.pack = k; else if (col.ctn == null && HDR.ctn.test(c) && !/price|rate|amount|value/i.test(c)) col.ctn = k;
           else if (col.qty == null && HDR.qty.test(c)) col.qty = k; else if (col.unit == null && HDR.unit.test(c)) col.unit = k; else if (col.pack == null && HDR.pack.test(c) && !/price|amount/i.test(c)) col.pack = k; });
           col.qtyHdr = cells[col.qty != null ? col.qty : -1] || ''; } }
     }
@@ -351,6 +363,106 @@
         items.push({ desc: d, pack: g(col.pack), qty: sc === 'eg' && c === q ? '' : q, unit: u, ctn: c, pallets: g(col.pallets) }); } }
     if (head.origin && sc === 'rx') { head.country = head.origin; delete head.origin; }
     return { head: head, items: items }; }
+  // ---- PDF / scan reading: the item table is found by the positions of its column headings
+  var PACKRE = /(\d+\s*[x×*]\s*\d+(?:\.\d+)?\s*(?:g|gm|gms|gr|kg|kgs|ml|l|ltr|lt|oz)\b)/i;
+  function unitFrom(h) { h = String(h || ''); return /bag/i.test(h) ? 'BAG' : /ctn|carton|case|box/i.test(h) ? 'CTN' : /\bkgs?\b/i.test(h) ? 'KG' : /\bm\.?\s*t|ton/i.test(h) ? 'MT' : /pcs|pieces|nos/i.test(h) ? 'PCS' : /fcl|container/i.test(h) ? 'FCL' : ''; }
+  function docTable(lines) {
+    var D = /desc|item|product|particular|commodity|goods|material/i, Q = /qty|quantity|qnty|package|pkgs|carton|ctn|bags|cases|^nos?\.?$/i, NOTQ = /price|rate|amount|value|weight|total\s*value|unit\s*price/i;
+    for (var h = 0; h < lines.length; h++) {
+      var dc = lines[h].cells.filter(function (c) { return c.t.length < 45 && D.test(c.t) && !/code|no\.?$/i.test(c.t); })[0]; if (!dc) continue;
+      var block = []; for (var k = Math.max(0, h - 2); k <= Math.min(lines.length - 1, h + 2); k++) { if (k === h || lines[k].cells.every(function (c) { return c.t.length < 40 && !/\d{3,}/.test(c.t); })) block.push(k); }
+      var hc = []; block.forEach(function (k) { lines[k].cells.forEach(function (c) { hc.push({ x0: c.x0, x1: c.x1, t: c.t }); }); });
+      hc.sort(function (a, b) { return a.x0 - b.x0; }); var cols = [];
+      hc.forEach(function (c) { var o = cols.filter(function (z) { return c.x0 < z.x1 + 2 && c.x1 > z.x0 - 2; })[0]; if (o) { o.x0 = Math.min(o.x0, c.x0); o.x1 = Math.max(o.x1, c.x1); o.t += ' ' + c.t; } else cols.push({ x0: c.x0, x1: c.x1, t: c.t }); });
+      cols.sort(function (a, b) { return a.x0 - b.x0; });
+      var ci = {}; cols.forEach(function (c, i) { var t = c.t;
+        if (ci.desc == null && D.test(t) && !/^(container|code)/i.test(t)) ci.desc = i;
+        else if (ci.pallets == null && /pallet|plt/i.test(t)) ci.pallets = i;
+        else if (ci.pack == null && /per\s*carton|units?\s*\/|pack(ing)?\s*(size)?$|^size|spec/i.test(t) && !NOTQ.test(t)) ci.pack = i;
+        else if (ci.qty == null && Q.test(t) && !NOTQ.test(t)) ci.qty = i;
+        else if (ci.unit == null && /^(unit|uom)$/i.test(t)) ci.unit = i; });
+      if (ci.desc == null || ci.qty == null) continue;
+      var colOf = function (c) { var cx = (c.x0 + c.x1) / 2, best = -1, bd = 1e9; cols.forEach(function (z, i) { var d = cx < z.x0 ? z.x0 - cx : cx > z.x1 ? cx - z.x1 : 0; if (d < bd) { bd = d; best = i; } }); return best; };
+      var start = Math.max.apply(null, block) + 1, items = [], cur = null, idle = 0;
+      for (var r = start; r < lines.length && r < start + 70; r++) { var L = lines[r], row = {};
+        if (L.cells.some(function (c) { return /^(total|grand\s*total|sub\s*-?\s*total)\b/i.test(c.t); })) break;
+        L.cells.forEach(function (c) { var i = colOf(c); row[i] = (row[i] ? row[i] + ' ' : '') + c.t; });
+        var d = String(row[ci.desc] || '').trim(), qn = (String(row[ci.qty] || '').replace(/,/g, '').match(/\d+(?:\.\d+)?/) || [])[0];
+        var info = /^(pro|exp|mfg|lot|batch|hs\s*code|production|expiry|best\s*before|net|gross)\b/i.test(d);
+        if (d && !info && /[a-z]{3}/i.test(d) && (!cur || cur.q)) { cur = { desc: d, q: '', pack: row[ci.pack] || '', unit: row[ci.unit] || '', pal: row[ci.pallets] || '' }; items.push(cur); idle = 0; }
+        else if (d && !info && cur && !cur.q && /[a-z]{3}/i.test(d)) cur.desc += ' ' + d;
+        if (cur && qn && !cur.q) { cur.q = qn; idle = 0; } else if (!d) idle++;
+        if (cur && !cur.pack && row[ci.pack]) cur.pack = row[ci.pack];
+        if (items.length && idle > 4) break; }
+      items = items.filter(function (i) { return i.q; });
+      if (items.length) return { items: items, qtyHdr: cols[ci.qty].t };
+    }
+    return null; }
+  // no readable column headings (common on phone scans): look for a run of rows "description … numbers"
+  function docRows(lines) {
+    var num = function (t) { var m = String(t).replace(/,/g, '').match(/^\D{0,2}(\d+(?:\.\d+)?)\D{0,3}$/); return m ? Number(m[1]) : null; }, rows = [];
+    lines.forEach(function (l) { var c = l.cells; if (!c.length) return; var m = /^[^a-z]{0,3}([a-z][a-z .,&()'\/-]*?(?:\d+(?:\.\d+)?\s*(?:kg|kilo|g|gm|ml|l|ltr)\b[a-z .,&()'\/-]*)?)\s*([\d.,|\[\]_ -]*)$/i.exec(c[0].t), d = m && m[1].trim();
+      if (!d || d.length < 8 || !/[a-z]{3}/i.test(d) || /^(total|sub|grand|down|balance|bank|account|branch|date|buyer|address|tel|fax|email|payment|price|value)/i.test(d)) return;
+      var nums = []; (m[2] + ' ' + c.slice(1).map(function (x) { return x.t; }).join(' ')).split(/[\s|\[\]_]+/).forEach(function (t) { var v = num(t); if (v != null) nums.push(v); });
+      if (nums.length) rows.push({ d: d, nums: nums, y: l.y }); });
+    // keep the largest group of rows sharing the first word (jam…, jam…, jam…)
+    var g = {}; rows.forEach(function (r) { var k = r.d.split(/\s+/)[0].toLowerCase(); (g[k] = g[k] || []).push(r); });
+    var best = Object.keys(g).map(function (k) { return g[k]; }).sort(function (a, b) { return b.length - a.length; })[0];
+    if (!best || best.length < 2) return null;
+    var items = best.map(function (r) { var n = r.nums, q = '', pack = '', ok = false, i, j, k;
+      // quantity × price = value tells the right number apart from misread ones
+      for (i = 0; i < n.length && !ok; i++) for (j = 0; j < n.length && !ok; j++) for (k = 0; k < n.length && !ok; k++) if (i !== j && j !== k && i !== k && n[i] >= 1 && Math.round(n[i]) === n[i] && n[k] > n[j] && Math.abs(n[i] * n[j] - n[k]) <= n[k] * 0.002) { q = n[i]; ok = true; }
+      if (!ok) { var prices = n.filter(function (v) { return v % 1 !== 0 && v < 100000; }), vals = n.filter(function (v) { return v > 1000; });
+        prices.some(function (p) { return vals.some(function (v) { var x = v / p; if (Math.abs(x - Math.round(x)) < 0.01 && x >= 1) { q = Math.round(x); ok = true; return true; } }); }); }
+      var ints = n.filter(function (v) { return Math.round(v) === v; });
+      if (!q) q = ints.filter(function (v) { return v >= 10 && v < 100000; })[0] || '';
+      var small = ints.filter(function (v) { return v > 1 && v <= 48 && v !== q; })[0]; if (small) pack = String(small);
+      return { desc: r.d.replace(/\s*[§]\s*/g, ' 5 '), q: q ? String(q) : '', pack: pack, unit: '', pal: '', unsure: !ok }; });
+    return { items: items, qtyHdr: '', rows: true }; }
+  function parseDocPO(doc, fname, sc) {
+    var out = { rec: null, warn: [] }, lines = [], off = 0, textOnly = (doc.pageOcr || []).some(function (o) { return !o; });
+    doc.pages.forEach(function (pg, pi) { if (textOnly && doc.pageOcr[pi]) return; pg.forEach(function (l) { lines.push({ y: l.y + off, cells: l.cells }); }); off += 100000; });
+    if (!lines.length) { out.warn.push('no text could be read' + (doc.ocr ? ' from the scan (try a clearer photo)' : '')); return out; }
+    var A = lines.map(function (l) { return l.cells.map(function (c) { return c.t; }); });
+    // a label followed by several pieces on the same line: keep the pieces together as one value
+    var LBL = /^(product|commodity|goods|quantity|qty|packing|packaging|pack\s*size|brand|payment(\s*terms?)?|terms\s*of\s*payment|shipment|shipping|origin|country\s*of\s*origin|port\s*of\s*discharge|destination|beneficiary|supplier|seller|exporter|buyer|address|date|rate|price|contract\s*value|contact\s*value|our\s*bank|bank\s*name|account\s*name|account\s*no\.?)\s*[:.]?$/i;
+    A = A.map(function (r) { if (r.length < 3 || !LBL.test(r[0])) return r; var o = [r[0]], v = []; for (var k = 1; k < r.length; k++) { if (LBL.test(r[k])) { if (v.length) o.push(v.join(' ')); v = []; o.push(r[k]); } else v.push(r[k]); } if (v.length) o.push(v.join(' ')); return o; });
+    var fr = readFreeSheet(A, sc, 400), H = fr.head;
+    var rec = { poNo: H.poNo, poDate: H.poDate, supplier: H.supplier, shipper: H.shipper, brand: H.brand, sched: H.sched, port: H.port, payment: H.payment };
+    if (sc === 'eg') rec.origin = H.origin || 'Egypt'; else rec.country = H.country || H.origin;
+    // values without labels near the top: a reference like GVA/0036/2026-27 and a date
+    var top = A.slice(0, 18).map(function (r) { return r.join(' '); });
+    if (!rec.poNo) top.some(function (t) { var m = /\b([A-Z]{2,8}[\/-][A-Z0-9][A-Z0-9\/-]{3,24})\b/.exec(t); if (m && !/\d{6,}/.test(m[1].replace(/\D/g, '').slice(0, 0) + '') && !/^(P\.?O|TEL|FAX)/i.test(m[1])) { rec.poNo = m[1]; return true; } });
+    if (!rec.poDate) top.some(function (t) { var m = /\b(\d{1,2}\s*[\/.-]\s*\d{1,2}\s*[\/.-]\s*\d{4}|[A-Za-z]{3,9}\.?,?\s*\d{1,2},?\s*\d{4})\b/.exec(t); if (m) { var d = cellIn(m[1], 'd'); if (/^\d{4}-\d\d-\d\d$/.test(d)) { rec.poDate = d; return true; } } });
+    if (!rec.supplier) A.slice(0, 8).some(function (r) { var t = r.join(' '); if (/(ltd|limited|llc|l\.l\.c|co\.|company|industries|foods?|agro|pvt|gmbh|s\.a\.|inc\b|corp)/i.test(t) && !/baniyas|al-saih|buyer|consignee|to:/i.test(t) && t.length < 70) { rec.supplier = t.replace(/\s*\(.*?star export.*?\)/i, '').trim(); return true; } });
+    if (rec.supplier) rec.supplier = rec.supplier.replace(/^[:\-\s]+/, '').replace(/\s+\./g, '.').replace(/\s*,\s*/g, ', ').replace(/\.$/, '').trim();
+    if (!rec.port && H.shipment) { var pm = /\bto\s+([a-z .'-]+?)(?:,|\s+by\b|$)/i.exec(H.shipment); if (pm) rec.port = pm[1].replace(/\s+/g, ' ').trim().replace(/\b\w/g, function (c) { return c.toUpperCase(); }).replace(/^Jebel Ali$/, 'Jebel Ali Port'); }
+    // items: the table, else the Excel-style reader, else "Product / Quantity / Packing" lines
+    var tb = docTable(lines) || docRows(lines), items = [];
+    if (tb && tb.items.some(function (i) { return i.unsure; })) out.warn.push('some quantities were hard to read: check them in Review');
+    if (tb) items = tb.items.map(function (i) { var desc = i.desc.replace(/^[^A-Za-z0-9]+/, '').replace(/\s+/g, ' ').trim(), pack = String(i.pack || '').trim(), pm2 = PACKRE.exec(desc);
+      if (!pack && pm2) { pack = pm2[1].replace(/\s*[x×*]\s*/, ' x ').replace(/(\d)(g|gm|gms|gr|kg|kgs|ml|l|ltr|lt|oz)\b/i, '$1 $2').toLowerCase(); desc = desc.replace(pm2[1], '').replace(/\s+/g, ' ').trim(); }
+      if (/^\d+$/.test(pack)) pack = pack + ' per carton';
+      var u = String(i.unit || '').toUpperCase() || unitFrom(tb.qtyHdr);
+      var it = { desc: desc.replace(/\b([A-Z])([A-Z]+)\b/g, function (w, a, b) { return a + b.toLowerCase(); }), pack: pack, qty: i.q, unit: u, ctn: '', pallets: String(i.pal || '').replace(/[^\d.]/g, '') };
+      if (sc === 'eg' && (!u || u === 'CTN')) { it.ctn = i.q; it.qty = ''; it.unit = 'CTN'; } return it; });
+    else if (fr.items.length) items = fr.items;
+    else if (H.product) { H.product = H.product.replace(/^[^A-Za-z0-9]+/, ''); var q = String(H.quantity || ''), mt = /(\d[\d,.]*)\s*(?:mts?|m\.?\s*tons?|metric\s*tons?|mt)\b/i.exec(q), any = /(\d[\d,.]*)\s*([a-z]+)?/i.exec(q);
+      var qty = mt ? mt[1] : any ? any[1] : '', unit = mt ? 'MT' : any && any[2] ? unitFrom(any[2]) || any[2].toUpperCase() : '';
+      items = [{ desc: H.product.replace(/\.$/, ''), pack: String(H.packing || '').replace(/^packed\s*in\s*/i, '').replace(/\.$/, ''), qty: String(qty).replace(/,/g, ''), unit: unit, ctn: sc === 'eg' && unit === 'CTN' ? String(qty).replace(/,/g, '') : '', pallets: '' }];
+      if (mt && any && /fcl/i.test(q)) rec.remarks = (rec.remarks ? rec.remarks + ' · ' : '') + q.replace(/^[:\s]+/, ''); }
+    var fw = items.map(function (i) { return String(i.desc || '').split(' ')[0]; });
+    items.forEach(function (i, x) { fw.forEach(function (w) { var me = fw[x]; if (w && w.length < me.length && me.length - w.length <= 2 && me.slice(-(w.length - 1)).toLowerCase() === w.slice(1).toLowerCase()) i.desc = w + i.desc.slice(me.length); }); });
+    items.forEach(function (i) { if (i.desc && i.desc === i.desc.toLowerCase()) i.desc = i.desc.charAt(0).toUpperCase() + i.desc.slice(1); });
+    if (rec.supplier && rec.supplier === rec.supplier.toLowerCase()) rec.supplier = rec.supplier.replace(/\b[a-z]/g, function (c) { return c.toUpperCase(); }).replace(/\b(For|Of|And)\b/g, function (w) { return w.toLowerCase(); });
+    if (sc !== 'eg' && !rec.country) { var om = /\b(indian|pakistani|chinese|thai|vietnamese|egyptian|turkish|brazilian|ukrainian|russian)\s+origin\b/i.exec(items.map(function (i) { return i.desc; }).join(' ')); if (om) rec.country = { indian: 'India', pakistani: 'Pakistan', chinese: 'China', thai: 'Thailand', vietnamese: 'Vietnam', egyptian: 'Egypt', turkish: 'Turkey', brazilian: 'Brazil', ukrainian: 'Ukraine', russian: 'Russia' }[om[1].toLowerCase()]; }
+    if (!items.length) { out.warn.push('no items found: open Review and type them in'); items = [{ desc: '', pack: '', qty: '', unit: '', ctn: '', pallets: '' }]; }
+    if (rec.poNo && /^\d{1,4}$/.test(rec.poNo)) rec.poNo = (rec.supplier ? rec.supplier.split(/\s+/)[0].toUpperCase().replace(/[^A-Z0-9]/g, '') + '-' : '') + 'PI-' + rec.poNo + (rec.poDate ? '-' + rec.poDate.slice(2, 4) : '');
+    if (!rec.poNo) { rec.poNo = String(fname || '').replace(/\.[^.]+$/, '').trim(); out.warn.push('PO / PI number not found, the file name is used'); }
+    if (H.payment) rec.remarks = (rec.remarks ? rec.remarks + ' · ' : '') + 'Payment: ' + H.payment;
+    if (!rec.supplier) out.warn.push(rec.poNo + ': supplier not found');
+    if (sc === 'eg' && !rec.month) rec.month = monOf(rec.sched) || monOf(rec.poDate);
+    rec.items = items; rec.kind = 'Purchase order'; out.rec = rec; return out; }
   function planImport(t, X, wb, wbs) {
     var plan = { t: t, jobs: [], bad: [], miss: [], newN: 0, updN: 0 };
     var addJob = function (label, isUpd, fn) { plan.jobs.push({ label: label, fn: fn }); if (isUpd) plan.updN++; else plan.newN++; };
@@ -370,10 +482,12 @@
         var got = {}, order = []; plan.files = []; plan.recs = [];
         var put = function (rec, file, how) { var k = lc(rec.poNo); if (!k) { plan.bad.push(file + ': no PO / schedule number found'); return; }
           if (!rec.items || !rec.items.length) { plan.bad.push(file + ': ' + rec.poNo + ' has no item lines'); return; }
+          if (rec.items.every(function (i) { return !i.desc; })) how += ' · items missing';
           if (got[k]) plan.bad.push(file + ': PO ' + rec.poNo + ' is also in ' + got[k].file + ' (this file is used)'); else order.push(k);
           got[k] = { rec: rec, file: file, how: how }; };
         (wbs || [{ name: '', wb: wb }]).forEach(function (f) {
           if (f.err) { plan.bad.push(f.name + ': ' + f.err); return; }
+          if (f.doc) { var dr = parseDocPO(f.doc, f.name, sc); dr.warn.forEach(function (w) { plan.bad.push(f.name + ': ' + w); }); if (dr.rec) put(dr.rec, f.name, (f.doc.pageOcr || []).every(Boolean) ? 'scan (OCR) · please review' : 'PDF · please review'); return; }
           var tws = templateSheet(f.wb);
           if (tws) { var r = readSheet(X, tws, C_PO), groups = {}, ord = [];
             r.rows.forEach(function (o, i) { var k = o.id || ('no:' + lc(o.poNo)); if (!o.poNo && !o.id) { plan.bad.push(f.name + ' row ' + (i + 2) + ': no PO / schedule no.'); return; }
@@ -389,8 +503,8 @@
           var full = Object.assign({}, cur || {}, rec, { sc: sc, id: cur ? cur.id : '' }); if (!cur && !full.status) full.status = 'Open';
           if (!cur && !full.kind) full.kind = sc === 'eg' ? 'Schedule' : 'Purchase order';
           plan.recs.push(full); var t2 = { n: full.items.length, q: 0, c: 0 }; full.items.forEach(function (i) { t2.q += num(i.qty); t2.c += num(i.ctn); });
-          plan.files.push({ file: g.file, how: g.how, poNo: full.poNo, supplier: full.supplier || '', date: full.poDate || '', items: t2.n + ' item' + (t2.n > 1 ? 's' : '') + (sc === 'eg' ? (t2.c ? ' · ' + fmtN(t2.c) + ' ctn' : '') : (t2.q ? ' · qty ' + fmtN(t2.q) : '')), upd: !!cur });
-          addJob((cur ? 'Update ' : 'Add ') + full.poNo, !!cur, function () { return call('savePO', full); }); });
+          var ji = plan.jobs.length; plan.files.push({ ji: ji, rec: full, file: g.file, how: g.how, poNo: full.poNo, supplier: full.supplier || '', date: full.poDate || '', items: t2.n + ' item' + (t2.n > 1 ? 's' : '') + (sc === 'eg' ? (t2.c ? ' · ' + fmtN(t2.c) + ' ctn' : '') : (t2.q ? ' · qty ' + fmtN(t2.q) : '')), upd: !!cur });
+          addJob((cur ? 'Update ' : 'Add ') + full.poNo, !!cur, function () { if (full.items.every(function (i) { return !i.desc; })) return Promise.reject(new Error('items missing, use Review')); return call('savePO', full); }); });
         return plan; }); }
     if (t.id === 'egi' || t.id === 'rxi' || t.id === 'mx') { var kind = t.id === 'egi' ? 'egInsp' : t.id === 'rxi' ? 'rxInsp' : 'matex', cols = t.id === 'mx' ? C_MX : C_IN;
       return call('getTab', kind).then(function (l) { var r = readSheet(X, findSheet(wb, [t.id === 'mx' ? 'matex' : 'inspection']), cols); plan.miss = r.miss.filter(function (h) { return !/^ID/.test(h); });
@@ -423,14 +537,14 @@
   function showPlan(p) {
     $(XL.out).innerHTML = '<div class="xlp"><b>' + esc(p.t.t) + '</b>: ' + p.newN + ' new, ' + p.updN + ' to update' + (p.bad.length ? ', <span class="bad">' + p.bad.length + ' row(s) skipped</span>' : '') +
       (p.miss.length ? '<div class="mu" style="margin-top:4px">Columns not found in the file (left unchanged): ' + esc(p.miss.slice(0, 12).join(', ')) + (p.miss.length > 12 ? '…' : '') + '</div>' : '') +
-      (p.files && p.files.length ? '<div class="tw" style="margin-top:8px;max-height:260px;overflow:auto"><table class="cmp"><thead><tr><th>File</th><th>PO / schedule no.</th><th>Supplier</th><th>PO date</th><th>Items</th><th></th></tr></thead><tbody>' + p.files.map(function (f) { return '<tr><td data-label="File">' + esc(f.file) + '<div class="mu" style="font-size:11px">read as ' + esc(f.how) + '</div></td><td data-label="PO"><b>' + esc(f.poNo) + '</b></td><td data-label="Supplier">' + (f.supplier ? esc(f.supplier) : '<span class="bad">not found</span>') + '</td><td data-label="Date">' + esc(f.date || '-') + '</td><td data-label="Items">' + esc(f.items) + '</td><td data-label="">' + (f.upd ? '<span class="pst p">update</span>' : '<span class="pst o">new</span>') + '</td></tr>'; }).join('') + '</tbody></table></div>' : '') +
+      (p.files && p.files.length ? '<div class="tw" style="margin-top:8px;max-height:260px;overflow:auto"><table class="cmp"><thead><tr><th>File</th><th>PO / schedule no.</th><th>Supplier</th><th>PO date</th><th>Items</th><th></th></tr></thead><tbody>' + p.files.map(function (f) { return '<tr><td data-label="File">' + esc(f.file) + '<div class="mu" style="font-size:11px">read as ' + esc(f.how) + '</div></td><td data-label="PO"><b>' + esc(f.poNo) + '</b></td><td data-label="Supplier">' + (f.supplier ? esc(f.supplier) : '<span class="bad">not found</span>') + '</td><td data-label="Date">' + esc(f.date || '-') + '</td><td data-label="Items">' + esc(f.items) + '</td><td data-label="">' + (f.saved ? '<span class="pst f">saved</span>' : (f.upd ? '<span class="pst p">update</span>' : '<span class="pst o">new</span>') + (/review/.test(f.how) && canEdit(XL.sc) ? ' <button type="button" class="sm p" data-xrv="' + p.files.indexOf(f) + '">Review &amp; save</button>' : '')) + '</td></tr>'; }).join('') + '</tbody></table></div>' : '') +
       (p.bad.length ? '<div class="bad" style="margin-top:6px;font-size:12.5px">' + p.bad.slice(0, 15).map(esc).join('<br>') + (p.bad.length > 15 ? '<br>…' : '') + '</div>' : '') +
       (p.jobs.length ? '<div class="mu" style="margin-top:6px;font-size:12px;max-height:120px;overflow:auto">' + p.jobs.slice(0, 40).map(function (j) { return esc(j.label); }).join('<br>') + (p.jobs.length > 40 ? '<br>… and ' + (p.jobs.length - 40) + ' more' : '') + '</div>' : '') +
-      '<div style="display:flex;gap:8px;margin-top:10px"><button class="p" type="button" id="xl-go"' + (p.jobs.length ? '' : ' disabled') + '>Import ' + p.jobs.length + (/po$/.test(p.t.id) ? ' purchase order(s)' : ' row(s)') + '</button>' + (p.recs && p.recs.length ? '<button type="button" id="xl-one">⬇ Download all as one Excel</button>' : '') + '<button type="button" id="xl-cancel">Cancel</button><span class="mu" id="xl-s" style="align-self:center"></span></div>' + (p.files && p.files.some(function (f) { return f.how !== 'template'; }) ? '<div class="mu" style="font-size:12px;margin-top:6px">Check that the PO numbers, suppliers and items were read correctly. If a file was not read right, click <b>Download all as one Excel</b>, correct it there, and import that one file.</div>' : '') + '</div>'; }
+      '<div style="display:flex;gap:8px;margin-top:10px"><button class="p" type="button" id="xl-go"' + (p.jobs.length ? '' : ' disabled') + '>Import ' + (p.jobs.filter(function (j) { return !j.done; }).length) + (/po$/.test(p.t.id) ? ' purchase order(s)' : ' row(s)') + '</button>' + (p.recs && p.recs.length ? '<button type="button" id="xl-one">⬇ Download all as one Excel</button>' : '') + '<button type="button" id="xl-cancel">Cancel</button><span class="mu" id="xl-s" style="align-self:center"></span></div>' + (p.files && p.files.some(function (f) { return f.how !== 'template'; }) ? '<div class="mu" style="font-size:12px;margin-top:6px">Check that the PO numbers, suppliers and items were read correctly. If a file was not read right, click <b>Download all as one Excel</b>, correct it there, and import that one file.</div>' : '') + '</div>'; }
   function runImport() { var p = XL.plan; if (!p || !p.jobs.length) return; var ok = 0, fail = [], i = 0; $('xl-go').disabled = true; $('xl-cancel').disabled = true;
     var next = function () { if (i >= p.jobs.length) { $('xl-s').textContent = ''; $(XL.out).innerHTML = '<div class="xlp"><b>Import finished:</b> ' + ok + ' saved' + (fail.length ? ', <span class="bad">' + fail.length + ' failed</span><div class="bad" style="font-size:12.5px;margin-top:4px">' + fail.slice(0, 15).map(esc).join('<br>') + '</div>' : '') + '.</div>'; XL.plan = null;
         reload(XL.sc); refreshBadges(); if (XL.out === 'po-xp') loadPOs(); return; }
-      var j = p.jobs[i++]; $('xl-s').textContent = 'Saving ' + i + ' of ' + p.jobs.length + '…';
+      var j = p.jobs[i++]; if (j.done) { ok++; return next(); } $('xl-s').textContent = 'Saving ' + i + ' of ' + p.jobs.length + '…';
       Promise.resolve().then(j.fn).then(function () { ok++; }, function (e) { fail.push(j.label + ': ' + e.message); }).then(next); };
     next(); }
 

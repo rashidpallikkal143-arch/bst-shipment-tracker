@@ -100,3 +100,9 @@ To restore: GitHub → **Actions → Daily backup** → open a run → **Artifac
 - `desktop/`: Windows / Mac app (Electron)
 - `mobile/`: Android app (Capacitor)
 - `.github/workflows/`: automatic website publishing and app builds
+
+## Reading purchase orders from PDF files and scans
+
+In **📋 Purchase orders / schedules → ⬆ Bulk import from Excel** you can pick PDF files and photos (.pdf, .jpg, .png, .webp) as well as Excel files, several at once.
+Text PDFs are read directly (pdf.js); scanned pages and photos are read with OCR (tesseract.js, runs in the browser, nothing is uploaded).
+The PO / PI number, date, supplier, port, items, pack sizes and quantities are taken from the document. Every PO read from a PDF or scan shows **Review & save**: check the fields (OCR can misread numbers) and save. POs saved this way are skipped by **Import**.
