@@ -90,6 +90,13 @@ service cloud.firestore {
       allow delete: if can('inspEdit') || can('settings');
     }
 
+    // Purchase orders / schedules (sc = 'eg' or 'rx'); the backup user may read them
+    match /po/{id} {
+      allow read: if (resource.data.sc == 'eg' && (can('egView') || isUser('backup-bot'))) || (resource.data.sc == 'rx' && (can('gView') || isUser('backup-bot')));
+      allow create, update: if (request.resource.data.sc == 'eg' && (can('egEdit') || can('settings'))) || (request.resource.data.sc == 'rx' && (can('gEdit') || can('settings')));
+      allow delete: if (resource.data.sc == 'eg' && (can('egDel') || can('settings'))) || (resource.data.sc == 'rx' && (can('gDel') || can('settings')));
+    }
+
     // Matex payments
     match /matex/{id} {
       allow read: if can('mxView');

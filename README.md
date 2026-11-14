@@ -62,6 +62,12 @@ The tracker map shows ships live using the free service aisstream.io. A GitHub j
 
 **Optional paid feed on our own map:** buy credits at VesselFinder (api.vesselfinder.com), then add the GitHub secret `VESSELFINDER_KEY`. The live-ship job then fetches each ship's position (at most once an hour per ship, only when no free position is available) and draws it on the real map with its track.
 
+## Purchase orders / schedules, Excel, summary report
+- **📋 Purchase orders / schedules** (both sections): enter POs and dispatch schedules made by Baniyas Spike. When the invoice comes, click **➜ Make container entry / Make shipment**: the form opens filled from the PO; add the invoice and container details. The PO shows how much has been shipped.
+- **📊 Excel import / export**: export any table to Excel, edit or add rows, and import it back (rows keep their ID column for updates).
+- **📄 Summary report**: date-wise, month-wise, item-wise, container-wise, supplier- and shipper-wise report for any period, ready to print or save as PDF.
+- In the **product tracker**, click the details on the right to edit that shipment.
+
 ## Install the apps
 - **iPhone / iPad:** open the website in **Safari** → Share → **Add to Home Screen**.
 - **Android:** download `BST-Shipment-Tracker-Android.apk` from Releases → open it → allow "install unknown apps". (Or in Chrome: ⋮ → Install app.)

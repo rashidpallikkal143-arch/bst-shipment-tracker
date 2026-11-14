@@ -24,11 +24,12 @@ async function main() {
     rx: await all(collection(db, 'rx'), 'Global import (backup-bot needs "Global import: view")'),
     insp: (await all(query(collection(db, 'insp'), where('sc', '==', 'eg')), 'Egypt inspections')).concat(await all(query(collection(db, 'insp'), where('sc', '==', 'rx')), 'Global inspections')),
     matex: await all(collection(db, 'matex'), 'Matex payments (backup-bot needs "Matex payments: view")') };
+  out.po = (await all(query(collection(db, 'po'), where('sc', '==', 'eg')), 'Egypt purchase orders').catch(() => [])).concat(await all(query(collection(db, 'po'), where('sc', '==', 'rx')), 'Global purchase orders').catch(() => []));
   // users, rights and history are saved for the record (passwords are never included; Import does not change users)
   out.users = await all(collection(db, 'users'), 'users').catch(e => { console.log('Note: users not included (' + e.message + ')'); return []; });
   out.activity = await all(collection(db, 'activity'), 'activity').catch(e => { console.log('Note: activity history not included (' + e.message + ')'); return []; });
   fs.writeFileSync(OUT, JSON.stringify(out, null, 1));
-  fs.writeFileSync('summary.txt', `Egypt ${out.eg.length} · Global import ${out.rx.length} · inspections ${out.insp.length} · Matex ${out.matex.length} · users ${out.users.length}`);
-  console.log(`Backup ready: Egypt ${out.eg.length} · Global import ${out.rx.length} · inspections ${out.insp.length} · Matex ${out.matex.length} · users ${out.users.length} · history lines ${out.activity.length}`);
+  fs.writeFileSync('summary.txt', `Egypt ${out.eg.length} · Global import ${out.rx.length} · inspections ${out.insp.length} · Matex ${out.matex.length} · purchase orders ${out.po.length} · users ${out.users.length}`);
+  console.log(`Backup ready: Egypt ${out.eg.length} · Global import ${out.rx.length} · inspections ${out.insp.length} · Matex ${out.matex.length} · purchase orders ${out.po.length} · users ${out.users.length} · history lines ${out.activity.length}`);
 }
 main().then(() => process.exit(0), e => { console.error('Backup failed while ' + e.message); process.exit(1); });

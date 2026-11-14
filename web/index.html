@@ -65,7 +65,7 @@ tr[data-ei],tr[data-ri],tr[data-ii],tr[data-mi],tr[data-em],tr[data-mo2]{cursor:
 body:not(.admin) .adm{display:none!important}.pk{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}.pk label{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--bd);border-radius:999px;padding:3px 10px;font-size:12.5px;color:var(--tx);background:#fff;cursor:pointer}.pk label input{width:auto;margin:0}.pk label.on{background:#d8f3e3;border-color:var(--ac)}
 #ovp{z-index:80}.admb{font-size:12.5px}body.admin .admb{background:#d8f3e3;border-color:var(--ac);color:var(--acd)}
 .ovl{display:none;position:fixed;inset:0;background:rgba(10,20,30,.5);overflow:auto;padding:12px}.box{background:#fff;border-radius:14px;max-width:880px;margin:0 auto;padding:18px}
-#ov,#ov3{z-index:50}#ovdr{z-index:55}#ov2{z-index:60}#ovi,#ovm{z-index:70}
+#ov,#ov3{z-index:75}#ov{z-index:75}#ovdr{z-index:55}#ov2{z-index:60}#ovi,#ovm{z-index:70}
 .g{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px}label{font-size:12px;color:var(--mu);display:block}label input,label select,label textarea{width:100%;margin-top:2px}
 .kv{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px 16px}.kv div span{display:block;font-size:11px;color:var(--mu);text-transform:uppercase;letter-spacing:.4px}.kv div b{font-weight:600}
 .ms{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}h3.sec{margin:16px 0 6px;font-size:14px}
@@ -833,7 +833,7 @@ $('eq').addEventListener('input',renderEgReport);$('es').addEventListener('chang
 $('ed').onclick=function(){eDir=-eDir;this.textContent=eDir>0?'↑ Asc':'↓ Desc';renderEgReport()};
 
 /* ---- Egypt: new container entry ---- */
-var FEG=[['sr','SR no.','number'],['sched','Planned dispatch date (Egypt)','date'],['actual','Actual dispatch from Egypt','date'],['supplier','Supplier name'],['inv','Invoice no. *'],['batch','Batch number'],['brand','Brand'],['origin','Origin'],['container','Container no.'],['vehicle','Vehicle number'],['driver','Driver name'],['mobile','Driver mobile number'],['invAmt','Invoice amount to supplier ($)','number'],['frAmt','Total paid freight amount ($)','number'],['delivered','Actual delivery date','date']];
+var FEG=[['sr','SR no.','number'],['sched','Planned dispatch date (Egypt)','date'],['actual','Actual dispatch from Egypt','date'],['supplier','Supplier name'],['inv','Invoice no. *'],['poNo','PO / schedule no.'],['batch','Batch number'],['brand','Brand'],['origin','Origin'],['container','Container no.'],['vehicle','Vehicle number'],['driver','Driver name'],['mobile','Driver mobile number'],['invAmt','Invoice amount to supplier ($)','number'],['frAmt','Total paid freight amount ($)','number'],['delivered','Actual delivery date','date']];
 var MSL={po:'Supplier PO status',supPay:'Supplier payment (Advance / Balance)',frPay:'Freight payment (Truck)',loading:'Loading & dispatch',ksa:'KSA border clearance',ghu:'Ghuwaifat border clearance (UAE)',wh:'Warehouse delivery',purchase:'Purchase entry (system booking)'};
 var EGEDIT=null,EITEMS=false;
 function egAddItem(it){it=it||{};var d=document.createElement('div');d.className='er';
@@ -842,7 +842,7 @@ function egAddItem(it){it=it||{};var d=document.createElement('div');d.className
  d.querySelector('.x').onclick=function(){d.remove();EITEMS=true;DIRTY.ov3=true;egTotals()};$('eits').appendChild(d)}
 function egTotals(){var c=0,l=0;document.querySelectorAll('#eits .er').forEach(function(r){c+=Number(r.querySelector('.ic').value)||0;l+=Number(r.querySelector('.il').value)||0});
  var ec=document.querySelector('#eform [data-e="ctn"]'),el=document.querySelector('#eform [data-e="pallets"]');if(ec&&!ec.dataset.man)ec.value=c||'';if(el&&!el.dataset.man)el.value=l||''}
-function egCols(){var m=$('ef-m').value,cols=((E.cols&&E.cols[m])||[]).concat(['inv','invAmt','frAmt']);
+function egCols(){var m=$('ef-m').value,cols=((E.cols&&E.cols[m])||[]).concat(['inv','invAmt','frAmt','poNo']);
  document.querySelectorAll('#eform [data-fk]').forEach(function(l){l.style.display=cols.indexOf(l.dataset.fk)>=0?'':'none'});
  var mx=0;E.rows.forEach(function(r){if(r.month===m&&Number(r.sr)>mx)mx=Number(r.sr)});
  var sr=document.querySelector('#eform [data-e="sr"]');if(sr&&!sr.dataset.man)sr.value=mx+1;var og=document.querySelector('#eform [data-e="origin"]');if(og&&!og.value&&!EGEDIT)og.value='Egypt'}
@@ -850,18 +850,18 @@ function egOpt(k,v){var l=((E.lists&&E.lists[k])||[]).slice();if(v&&l.indexOf(v)
 function egParseItems(t){return String(t||'').split('\n').map(function(x){return x.trim()}).filter(Boolean).map(function(x){
  var m=/^(.*?)\s*(?:\(([^)]*)\))?\s*(?::\s*([\d,.]+)\s*ctn)?\s*(?:\/\s*([\d,.]+)\s*plt)?\s*$/i.exec(x);
  if(!m||!m[1])return {n:x};return {n:m[1].trim(),p:m[2]||'',c:m[3]?m[3].replace(/,/g,''):'',l:m[4]?m[4].replace(/,/g,''):''}})}
-function openEg(r){if(!E){alert('Egypt data is still loading.');return}r=(r&&r.month)?r:null;EGEDIT=r;EITEMS=false;
- var cur=r?r.month:((month!=='ALL'?month:E.months[E.months.length-1])||''),val=function(k){return r&&r[k]!=null?r[k]:''};
- $('eform').innerHTML='<div style="display:flex;justify-content:space-between;align-items:center"><h2 style="margin:0;font-size:17px">'+(r?'Edit container entry (Egypt) · '+esc(r.month)+' · SR '+esc(r.sr):'New container entry (Egypt)')+'</h2><button data-x="ov3" type="button">Close</button></div>'
+function openEg(r,pre){if(!E){alert('Egypt data is still loading.');return}r=(r&&r.month)?r:null;pre=r?null:(pre||null);EGEDIT=r;EITEMS=!!pre;
+ var cur=r?r.month:((pre&&pre.month&&E.months.indexOf(pre.month)>=0?pre.month:(month!=='ALL'?month:E.months[E.months.length-1]))||''),val=function(k){var o=r||pre;return o&&o[k]!=null?o[k]:''};
+ $('eform').innerHTML='<div style="display:flex;justify-content:space-between;align-items:center"><h2 style="margin:0;font-size:17px">'+(r?'Edit container entry (Egypt) · '+esc(r.month)+' · SR '+esc(r.sr):pre?'New container entry from '+esc(pre.poNo||'purchase order'):'New container entry (Egypt)')+'</h2><button data-x="ov3" type="button">Close</button></div>'
  +'<div class="g" style="margin-top:12px"><label>Month tab<select id="ef-m"'+(r?' disabled':'')+'>'+E.months.map(function(m){return '<option'+(m===cur?' selected':'')+'>'+esc(m)+'</option>'}).join('')+'</select></label>'
- +FEG.map(function(f){return '<label data-fk="'+f[0]+'">'+f[1]+'<input data-e="'+f[0]+'" value="'+esc(val(f[0]))+'"'+(f[2]==='date'?' type="date"':f[2]==='number'?' type="number" min="0" step="any"':'')+'></label>'}).join('')+'</div>'
+ +FEG.map(function(f){return '<label data-fk="'+f[0]+'">'+f[1]+'<input data-e="'+f[0]+'" value="'+esc(val(f[0]))+'"'+(f[2]==='date'?' type="date"':f[2]==='number'?' type="number" min="0" step="any"':'')+'>'+(f[0]==='poNo'?'<input type="hidden" data-e="poId" value="'+esc(val('poId'))+'">':'')+'</label>'}).join('')+'</div>'
  +'<div style="display:flex;justify-content:space-between;align-items:center;margin-top:14px"><b>Items in this container</b><button id="eai" type="button">+ Add item</button></div><div id="eits"></div>'
  +'<div class="g" style="margin-top:10px"><label data-fk="ctn">Total CTN (auto, editable)<input data-e="ctn" type="number" min="0" value="'+esc(val('ctn'))+'"></label><label data-fk="pallets">Total pallets (auto, editable)<input data-e="pallets" type="number" min="0" value="'+esc(val('pallets'))+'"></label></div>'
  +'<h3 class="sec">Tracking milestones</h3><div class="g">'+Object.keys(MSL).map(function(k){return '<label data-fk="'+k+'">'+MSL[k]+'<select data-e="'+k+'">'+egOpt(k,val(k))+'</select></label>'}).join('')+'</div>'
  +'<label data-fk="remarks" style="margin-top:10px">Remarks<textarea data-e="remarks" rows="2">'+esc(val('remarks'))+'</textarea></label>'
  +'<div class="mu" style="margin-top:8px">Estimated arrival, current position, milestones % and delivery alert are calculated by the sheet.</div>'
  +'<div style="display:flex;justify-content:space-between;gap:8px;margin-top:14px"><button id="edel" type="button" style="'+(r?'':'visibility:hidden')+'">Delete</button><span><button data-x="ov3" type="button">Cancel</button> <button class="p" id="esv" type="button">'+(r?'Save changes':'Save to Egypt sheet')+'</button></span></div>';
- var its=r?egParseItems(r.items):[];if(its.length)its.forEach(egAddItem);else egAddItem();
+ var its=(r||pre)?egParseItems((r||pre).items):[];if(its.length)its.forEach(egAddItem);else egAddItem();
  if(r){var sr=document.querySelector('#eform [data-e="sr"]');if(sr)sr.dataset.man=1;['ctn','pallets'].forEach(function(k){var e=document.querySelector('#eform [data-e="'+k+'"]');if(e&&val(k)!=='')e.dataset.man=1})}
  egCols();show('ov3');
  $('ef-m').onchange=function(){var sr=document.querySelector('#eform [data-e="sr"]');if(sr)delete sr.dataset.man;egCols()};
@@ -874,7 +874,7 @@ function openEg(r){if(!E){alert('Egypt data is still loading.');return}r=(r&&r.m
   if(!r&&!v.inv){alert('Invoice number is required.');return}
   if(!v.items&&!v.container&&!v.supplier){alert('Enter at least one item, the container number or the supplier.');return}
   var m=$('ef-m').value;$('esv').disabled=true;$('esv').textContent='Saving…';
-  google.script.run.withSuccessHandler(function(x){DIRTY.ov3=false;hide('ov3');hide('ov2');month=m;$('msg').textContent=(r?'Updated in ':'Saved to ')+m+'.';loadEg()})
+  google.script.run.withSuccessHandler(function(x){DIRTY.ov3=false;hide('ov3');hide('ov2');month=m;$('msg').textContent=(r?'Updated in ':'Saved to ')+m+'.';if(pre&&pre.poId&&window.BST)BST.call('linkPO',pre.poId,{ref:x&&x.row||'',label:(v.inv||'')+(v.container?' · '+v.container:''),month:m}).catch(function(){});loadEg()})
    .withFailureHandler(function(e){$('esv').disabled=false;$('esv').textContent=r?'Save changes':'Save to Egypt sheet';alert(e.message)}).saveEgyptEntry({month:m,v:v,row:ref.row,orig:ref.orig},APW)};
  if(r)$('edel').onclick=function(){if(!confirm('Delete container '+(r.container||('SR '+r.sr))+' from '+r.month+'?\nThe row\'s entries are cleared; the sheet formulas stay.'))return;
   google.script.run.withSuccessHandler(function(){DIRTY.ov3=false;hide('ov3');hide('ov2');$('msg').textContent='Deleted from '+r.month+'.';loadEg()}).withFailureHandler(function(e){alert(e.message)}).deleteEgyptEntry({month:r.month,row:ref.row,orig:ref.orig},APW)}}
@@ -1010,7 +1010,8 @@ function openEdit(s){edit=s?s.key:null;EDREC=s||null;var cur=new Date(TD);s=s||{
  syncPiMonth();
  $('invs').innerHTML='';splitInv(s.invoice).forEach(addInv);if(!$('invs').children.length)addInv('');
  $('cns').innerHTML='';var cl=s.key?contsOf(s.key):[];if(!cl.length&&s.ref)cl=splitInv(s.ref).map(function(n){return {no:n,size:s.contSize}});cl.forEach(addCont);if(!cl.length)addCont();
- $('its').innerHTML='';(s.key?itemsOf(s.key):[{}]).forEach(addItem);if(!$('its').children.length)addItem();$('del').style.display=edit?'':'none';show('ov')}
+ $('f').insertAdjacentHTML('beforeend','<input type="hidden" data-k="poId" value="'+esc(s.poId||'')+'">');
+ $('its').innerHTML='';(s.key?itemsOf(s.key):(s._items&&s._items.length?s._items:[{}])).forEach(addItem);if(!$('its').children.length)addItem();$('del').style.display=edit?'':'none';show('ov')}
 var EDREC=null;
 function syncPiMonth(){var d=document.querySelector('#f [data-k="piDate"]'),m=document.querySelector('#f [data-k="month"]');if(!d||!m)return;
  if(d.value){var lab=key2lab(d.value.slice(0,7));if(![].some.call(m.options,function(o){return o.value===lab||o.text===lab}))m.insertAdjacentHTML('beforeend','<option>'+esc(lab)+'</option>');m.value=lab;m.disabled=true;m.title='Set by the PI date'}else{m.disabled=false;m.title=''}}
@@ -1035,7 +1036,7 @@ $('sv').onclick=function(){var s={items:[]};document.querySelectorAll('#f [data-
  if(EDREC&&EDREC.refId)s.refId=EDREC.refId;
  if(s.fe1&&s.fs1&&s.fe1<s.fs1){alert('First port: free time end is before free time start.');return}
  if(s.freeEnd&&s.freeStart&&s.freeEnd<s.freeStart){alert('Final port: free time end is before free time start.');return}
- $('sv').disabled=true;google.script.run.withSuccessHandler(function(){$('sv').disabled=false;hide('ov');hide('ov2');loadRx()}).withFailureHandler(function(e){$('sv').disabled=false;alert(e.message)}).saveShipment(s,edit,APW)};
+ $('sv').disabled=true;google.script.run.withSuccessHandler(function(k){$('sv').disabled=false;hide('ov');hide('ov2');if(!edit&&EDREC&&EDREC.poId&&window.BST)BST.call('linkPO',EDREC.poId,{ref:k||'',label:k||'',month:s.month}).catch(function(){});loadRx()}).withFailureHandler(function(e){$('sv').disabled=false;alert(e.message)}).saveShipment(s,edit,APW)};
 $('del').onclick=function(){if(edit&&confirm('Delete this shipment with its invoices, containers and items?'))google.script.run.withSuccessHandler(function(){hide('ov');hide('ov2');loadRx()}).withFailureHandler(function(e){alert(e.message)}).deleteShipment(edit,APW)};
 /* monthly report */
 var mlabel=key2lab;
@@ -1118,5 +1119,6 @@ $('hm-lock').onclick=function(){if(!confirm('Forget the saved section passwords 
 </script>
 <script src="js/app-ui.js"></script>
 <script src="js/realmap.js"></script>
+<script src="js/extras.js"></script>
 <script>if('serviceWorker' in navigator&&location.protocol==='https:')navigator.serviceWorker.register('sw.js').catch(function(){});</script>
 </body></html>

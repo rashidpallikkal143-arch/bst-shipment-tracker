@@ -19,9 +19,9 @@
     ['settings', 'Settings, import & backup']
   ];
   var RX_KEYS = ['line', 'vessel', 'imo', 'mmsi', 'voyage', 'bl', 'tlink', 'refId', 'piDate', 'poStatus', 'poNs', 'piNs', 'port1', 'eta1', 'ata1', 'fs1', 'fe1', 'fu1', 'fu2',
-    'invoice', 'po', 'pi', 'country', 'ref', 'contQty', 'contSize', 'stage', 'etd', 'atd', 'eta', 'ata', 'freeStart', 'freeEnd', 'supplier', 'shipper', 'whDate', 'payment', 'remarks', 'month', 'port'];
+    'invoice', 'po', 'poId', 'pi', 'country', 'ref', 'contQty', 'contSize', 'stage', 'etd', 'atd', 'eta', 'ata', 'freeStart', 'freeEnd', 'supplier', 'shipper', 'whDate', 'payment', 'remarks', 'month', 'port'];
   var EG_KEYS = ['sr', 'sched', 'actual', 'items', 'batch', 'supplier', 'inv', 'brand', 'origin', 'ctn', 'pallets', 'container', 'vehicle', 'driver', 'mobile',
-    'po', 'supPay', 'invAmt', 'frPay', 'frAmt', 'loading', 'ksa', 'ghu', 'wh', 'delivered', 'purchase', 'updated', 'remarks'];
+    'po', 'supPay', 'invAmt', 'frPay', 'frAmt', 'loading', 'ksa', 'ghu', 'wh', 'delivered', 'purchase', 'updated', 'remarks', 'poNo', 'poId'];
   var EG_NUM = { sr: 1, ctn: 1, pallets: 1, invAmt: 1, frAmt: 1 };
   var INSP_KEYS = ['id', 'ref', 'invoice', 'level', 'product', 'status', 'authority', 'date', 'result', 'clearance', 'clearDate', 'action', 'owner', 'due', 'remarks', 'updated', 'by'];
   var MX_KEYS = ['id', 'month', 'container', 'inv', 'invDate', 'desc', 'amount', 'paid', 'status', 'payDate', 'mode', 'ref', 'due', 'remarks', 'updated'];
@@ -271,6 +271,45 @@
     return S.db.set(t.col, id, data).then(function () { return id; }); };
   API.deleteTabRow = function (kind, id) { var t = TAB[kind]; if (!t) throw err('Unknown table: ' + kind); need(t.edit); return S.db.del(t.col, id).then(function () { return true; }); };
 
+  // ------------------------------------------------------------------ Purchase orders / schedules (sc = 'eg' or 'rx')
+  var PO_KEYS = ['poNo', 'poDate', 'kind', 'supplier', 'shipper', 'brand', 'origin', 'country', 'month', 'sched', 'port', 'payment', 'status', 'remarks'];
+  var PO_R = { eg: { view: 'egView', edit: 'egEdit', del: 'egDel' }, rx: { view: 'gView', edit: 'gEdit', del: 'gDel' } };
+  var poRight = function (sc, k) { var r = PO_R[sc]; if (!r) throw err('Unknown section'); if (!can(r[k]) && !can('settings')) throw err('You do not have the right to do this.'); };
+  var poItems = function (l) { return (l || []).map(function (i) { return { desc: s_(i.desc).trim(), pack: s_(i.pack).trim(), qty: s_(i.qty).trim(), unit: s_(i.unit).trim(), ctn: s_(i.ctn).trim(), pallets: s_(i.pallets).trim() }; })
+    .filter(function (i) { return i.desc || i.qty || i.ctn; }); };
+  API.getPOs = function (sc) { poRight(sc, 'view'); return S.db.all('po', 'sc', sc).then(function (l) { return l.map(function (d) { var o = { id: d._id, sc: sc };
+    PO_KEYS.forEach(function (k) { o[k] = s_(d[k]); }); o.items = poItems(d.items); o.links = (d.links || []).slice(); o.created = s_(d.created); o.by = s_(d.by); o.updated = s_(d.updated); o.fromEg = s_(d.fromEg); return o; })
+    .sort(function (a, b) { return (a.status === 'Cancelled') - (b.status === 'Cancelled') || String(a.sched || a.poDate || '9').localeCompare(String(b.sched || b.poDate || '9')); }); }); };
+  API.savePO = function (o) { var sc = o.sc; poRight(sc, 'edit');
+    if (!String(o.poNo || '').trim()) throw err('Enter the PO / schedule number (or name).');
+    var data = { sc: sc }; PO_KEYS.forEach(function (k) { if (o[k] !== undefined) data[k] = s_(o[k]).trim(); }); data.items = poItems(o.items);
+    if (!data.items.length) throw err('Add at least one item line.');
+    if (!data.status) data.status = 'Open'; data.updated = new Date().toISOString(); data.by = ME.userId || '';
+    var id = o.id || genId('P');
+    return (o.id ? S.db.get('po', id) : Promise.resolve(null)).then(function (cur) {
+      if (cur) { data.links = cur.links || []; data.created = cur.created || ''; data.createdBy = cur.createdBy || ''; if (cur.fromEg) data.fromEg = cur.fromEg; }
+      else { data.links = []; data.created = data.updated; data.createdBy = ME.userId || ''; }
+      return S.db.set('po', id, data).then(function () { return id; }); }); };
+  API.deletePO = function (id) { return S.db.get('po', id).then(function (d) { if (!d) return true; poRight(d.sc, 'del'); return S.db.del('po', id).then(function () { return true; }); }); };
+  // a shipment / container entry was made from this PO
+  API.linkPO = function (id, link) { return S.db.get('po', id).then(function (d) { if (!d) throw err('This purchase order no longer exists.'); poRight(d.sc, 'edit');
+    var l = (d.links || []).filter(function (x) { return x.ref !== link.ref; }); l.push({ ref: s_(link.ref), label: s_(link.label), month: s_(link.month), at: new Date().toISOString(), by: ME.userId || '' });
+    var st = d.status === 'Open' || !d.status ? 'Partly shipped' : d.status;
+    return S.db.merge('po', id, { links: l, status: st, updated: new Date().toISOString(), by: ME.userId || '' }).then(function () { return true; }); }); };
+  // Egypt: container entries without an invoice number are schedules / POs made by Baniyas Spike: move them to Purchase orders
+  API.moveEgNoInvoiceToPO = function (month) { poRight('eg', 'edit'); need('egDel');
+    return S.db.all('eg').then(function (docs) { var ops = [], n = 0;
+      docs.filter(function (d) { return !String(d.inv || '').trim() && (!month || d.month === month) && (d.items || d.sched || d.supplier); }).forEach(function (d) {
+        var items = String(d.items || '').split('\n').map(function (x) { return x.trim(); }).filter(Boolean).map(function (x) {
+          var m = /^(.*?)\s*(?:\(([^)]*)\))?\s*(?::\s*([\d,.]+)\s*ctn)?\s*(?:\/\s*([\d,.]+)\s*plt)?\s*$/i.exec(x) || [];
+          return { desc: (m[1] || x).trim(), pack: m[2] || '', qty: '', unit: 'CTN', ctn: (m[3] || '').replace(/,/g, ''), pallets: (m[4] || '').replace(/,/g, '') }; });
+        if (!items.length) items = [{ desc: 'Items not listed', pack: '', qty: '', unit: '', ctn: s_(d.ctn), pallets: s_(d.pallets) }];
+        var id = genId('P'); n++;
+        ops.push({ op: 'set', col: 'po', id: id, data: { sc: 'eg', poNo: s_(d.poNo) || ('Schedule ' + d.month + ' · SR ' + s_(d.sr)), kind: 'Schedule', poDate: '', supplier: s_(d.supplier), brand: s_(d.brand), origin: s_(d.origin) || 'Egypt',
+          month: s_(d.month), sched: s_(d.sched), status: 'Open', remarks: s_(d.remarks), items: items, links: [], fromEg: d._id, created: s_(d.created) || new Date().toISOString(), createdBy: s_(d.by), updated: new Date().toISOString(), by: ME.userId || '' } });
+        ops.push({ op: 'del', col: 'eg', id: d._id }); });
+      return S.db.batch(ops).then(function () { return n; }); }); };
+
   // ------------------------------------------------------------------ old password checks (now: rights of the signed-in user)
   API.checkViewer = function () { return ME ? (can('admin') ? 'admin' : 'viewer') : ''; };
   API.checkAdmin = function () { var sec = window.CURSEC; return sec === 'eg' ? can('egEdit') : sec === 'rx' ? can('gEdit') : can('admin'); };
@@ -369,7 +408,11 @@
     changeMyPassword: { f: function () { return ['Changed own password', 'Account', '']; } },
     saveSettings: { f: function (a) { return ['Changed settings', 'Settings', Object.keys(a[0] || {}).join(', ')]; } },
     importData: { f: function (a) { return ['Imported data', 'Settings', a[1] ? 'replaced existing data' : 'added to existing data']; } },
-    exportBackup: { f: function () { return ['Downloaded backup', 'Settings', '']; } }
+    exportBackup: { f: function () { return ['Downloaded backup', 'Settings', '']; } },
+    savePO: { f: function (a) { return [a[0].id ? 'Edited purchase order' : 'Added purchase order', a[0].sc === 'eg' ? 'Egypt' : 'Global import', a[0].poNo]; } },
+    deletePO: { pre: function (id) { return S.db.get('po', id); }, f: function (a, r, pre) { var p = pre || {}; return ['Deleted purchase order', p.sc === 'eg' ? 'Egypt' : 'Global import', p.poNo || a[0]]; } },
+    linkPO: { pre: function (id) { return S.db.get('po', id); }, f: function (a, r, pre) { var p = pre || {}; return ['Made shipment from purchase order', p.sc === 'eg' ? 'Egypt' : 'Global import', (p.poNo || '') + ' → ' + (a[1] && a[1].label || '')]; } },
+    moveEgNoInvoiceToPO: { f: function (a, r) { return ['Moved entries without invoice to purchase orders', 'Egypt', (a[0] || 'all months') + ' · ' + r + ' entries']; } }
   };
   API.getActivity = function (o) { need('users'); o = o || {}; var days = Math.max(1, Math.min(Number(o.days) || 7, 400));
     var since = new Date(Date.now() - days * 864e5).toISOString();
@@ -396,18 +439,19 @@
     return out; }
   API.importData = function (j, replace) { need('settings'); if (!j || typeof j !== 'object') throw err('This is not a tracker data file.');
     var x = j.format === 'bst-sheets-export' ? fromSheets(j) : j.format === 'bst-app-backup' ? j : null; if (!x) throw err('This file is not a BST tracker export or backup.');
-    var cols = ['eg', 'rx', 'insp', 'matex'];
-    return (replace ? Promise.all(cols.map(function (c) { return S.db.all(c); })) : Promise.resolve([[], [], [], []])).then(function (old) {
+    var cols = ['eg', 'rx', 'insp', 'matex', 'po'];
+    return (replace ? Promise.all(cols.map(function (c) { return c === 'po' ? Promise.all([S.db.all('po', 'sc', 'eg'), S.db.all('po', 'sc', 'rx')]).then(function (z) { return z[0].concat(z[1]); }) : S.db.all(c); })) : Promise.resolve([[], [], [], [], []])).then(function (old) {
       var ops = []; old.forEach(function (l, i) { l.forEach(function (d) { ops.push({ op: 'del', col: cols[i], id: d._id }); }); });
       (x.eg || []).forEach(function (d) { ops.push({ op: 'set', col: 'eg', id: d._id || genId('E'), data: strip(d) }); });
       (x.rx || []).forEach(function (d) { ops.push({ op: 'set', col: 'rx', id: d._id || genId('S'), data: strip(d) }); });
       (x.insp || []).forEach(function (d) { ops.push({ op: 'set', col: 'insp', id: d._id || d.id, data: strip(d) }); });
       (x.matex || []).forEach(function (d) { ops.push({ op: 'set', col: 'matex', id: d._id || d.id, data: strip(d) }); });
+      (x.po || []).forEach(function (d) { ops.push({ op: 'set', col: 'po', id: d._id || genId('P'), data: strip(d) }); });
       if (x.settings && Object.keys(x.settings).length) ops.push({ op: 'merge', col: 'settings', id: 'main', data: strip(x.settings) });
-      return S.db.batch(ops).then(function () { return { eg: (x.eg || []).length, rx: (x.rx || []).length, insp: (x.insp || []).length, matex: (x.matex || []).length, removed: replace ? old.reduce(function (a, l) { return a + l.length; }, 0) : 0 }; }); }); };
+      return S.db.batch(ops).then(function () { return { eg: (x.eg || []).length, rx: (x.rx || []).length, insp: (x.insp || []).length, matex: (x.matex || []).length, po: (x.po || []).length, removed: replace ? old.reduce(function (a, l) { return a + l.length; }, 0) : 0 }; }); }); };
   function strip(d) { var o = Object.assign({}, d); delete o._id; return o; }
-  API.exportBackup = function () { need('settings'); return Promise.all([S.db.get('settings', 'main'), S.db.all('eg'), S.db.all('rx'), S.db.all('insp'), S.db.all('matex')]).then(function (x) {
-    return { format: 'bst-app-backup', version: 1, exportedAt: new Date().toISOString(), settings: x[0] ? strip(x[0]) : {}, eg: x[1], rx: x[2], insp: x[3], matex: x[4] }; }); };
+  API.exportBackup = function () { need('settings'); return Promise.all([S.db.get('settings', 'main'), S.db.all('eg'), S.db.all('rx'), S.db.all('insp'), S.db.all('matex'), S.db.all('po', 'sc', 'eg').catch(function () { return []; }), S.db.all('po', 'sc', 'rx').catch(function () { return []; })]).then(function (x) {
+    return { format: 'bst-app-backup', version: 1, exportedAt: new Date().toISOString(), settings: x[0] ? strip(x[0]) : {}, eg: x[1], rx: x[2], insp: x[3], matex: x[4], po: x[5].concat(x[6]) }; }); };
 
   // ------------------------------------------------------------------ public object for the login / admin screens
   window.BST = {
