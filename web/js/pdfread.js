@@ -50,10 +50,16 @@
           tc.items.forEach(function (it) { if (!it.str || !it.str.trim()) return; var x = it.transform[4], y = vp.height - it.transform[5], fh = Math.hypot(it.transform[2], it.transform[3]) || 10;
             words.push({ t: it.str, x0: x, x1: x + (it.width || it.str.length * fh * 0.5), y: y - fh / 2, h: fh }); });
           var chars = words.reduce(function (s, w) { return s + w.t.trim().length; }, 0);
-          if (chars > 40) { pages.push(toLines(words, 1.8)); pageOcr.push(false); return; }
-          // scanned page: draw it and read it with OCR
-          usedOcr = true; var v2 = pg.getViewport({ scale: 2.2 }), cv = document.createElement('canvas'); cv.width = v2.width; cv.height = v2.height;
-          return pg.render({ canvasContext: cv.getContext('2d'), viewport: v2 }).promise.then(function () { return ocrCanvas(cv, progress); }).then(function (l) { pages.push(l); pageOcr.push(true); }); }); }).then(next); };
+          var textLines = toLines(words, 1.8);
+          if (chars > 600) { pages.push(textLines); pageOcr.push(false); return; }
+          // little text: is the page really a picture (a scan, with maybe a stamp like "Scanned with CamScanner")?
+          return (chars > 40 ? pg.getOperatorList().then(function (ol) { var P2 = window.pdfjsLib.OPS, img = [P2.paintImageXObject, P2.paintJpegXObject, P2.paintInlineImageXObject, P2.paintImageXObjectRepeat].filter(function (x) { return x != null; });
+              return ol.fnArray.some(function (f) { return img.indexOf(f) >= 0; }); }, function () { return false; }) : Promise.resolve(true)).then(function (scan) {
+            if (!scan) { pages.push(textLines); pageOcr.push(false); return; }
+            var v2 = pg.getViewport({ scale: 2.2 }), cv = document.createElement('canvas'); cv.width = v2.width; cv.height = v2.height;
+            return pg.render({ canvasContext: cv.getContext('2d'), viewport: v2 }).promise.then(function () { return ocrCanvas(cv, progress); }).then(function (l) {
+              var oc = l.reduce(function (n, x) { return n + x.cells.reduce(function (m, c) { return m + c.t.length; }, 0); }, 0);
+              if (oc > chars * 1.5) { usedOcr = true; pages.push(l); pageOcr.push(true); } else { pages.push(textLines); pageOcr.push(false); } }); }); }); }).then(next); };
       return next(); }); }
   function readImage(blob, progress) {
     return new Promise(function (res, rej) { var img = new Image(); img.onload = function () { res(img); }; img.onerror = function () { rej(new Error('This image could not be opened.')); }; img.src = URL.createObjectURL(blob); })

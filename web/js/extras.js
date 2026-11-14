@@ -371,16 +371,17 @@
     var D = /desc|item|product|particular|commodity|goods|material/i, Q = /qty|quantity|qnty|package|pkgs|carton|ctn|bags|cases|^nos?\.?$/i, NOTQ = /price|rate|amount|value|weight|total\s*value|unit\s*price/i;
     for (var h = 0; h < lines.length; h++) {
       var dc = lines[h].cells.filter(function (c) { return c.t.length < 45 && D.test(c.t) && !/code|no\.?$/i.test(c.t); })[0]; if (!dc) continue;
-      var block = []; for (var k = Math.max(0, h - 2); k <= Math.min(lines.length - 1, h + 2); k++) { if (k === h || lines[k].cells.every(function (c) { return c.t.length < 40 && !/\d{3,}/.test(c.t); })) block.push(k); }
-      var hc = []; block.forEach(function (k) { lines[k].cells.forEach(function (c) { hc.push({ x0: c.x0, x1: c.x1, t: c.t }); }); });
+      var block = []; for (var k = Math.max(0, h - 2); k <= Math.min(lines.length - 1, h + 2); k++) { if (k === h || lines[k].cells.every(function (c) { return c.t.length < 40 && (k < h ? !/\d{3,}/.test(c.t) && !/:\s*\S/.test(c.t) : !/\d/.test(c.t)); })) block.push(k); else if (k > h) break; }
+      var hc = []; block.forEach(function (k) { lines[k].cells.forEach(function (c) { if (/[a-z]/i.test(c.t)) hc.push({ x0: c.x0, x1: c.x1, t: c.t, k: k }); }); });
       hc.sort(function (a, b) { return a.x0 - b.x0; }); var cols = [];
-      hc.forEach(function (c) { var o = cols.filter(function (z) { return c.x0 < z.x1 + 2 && c.x1 > z.x0 - 2; })[0]; if (o) { o.x0 = Math.min(o.x0, c.x0); o.x1 = Math.max(o.x1, c.x1); o.t += ' ' + c.t; } else cols.push({ x0: c.x0, x1: c.x1, t: c.t }); });
+      hc.forEach(function (c) { var o = cols.filter(function (z) { var ov = Math.min(c.x1, z.x1) - Math.max(c.x0, z.x0); return z.ks.indexOf(c.k) < 0 && ov > 0.3 * Math.min(c.x1 - c.x0, z.x1 - z.x0); })[0];
+        if (o) { o.x0 = Math.min(o.x0, c.x0); o.x1 = Math.max(o.x1, c.x1); o.t += ' ' + c.t; o.parts.push(c.t); o.ks.push(c.k); } else cols.push({ x0: c.x0, x1: c.x1, t: c.t, parts: [c.t], ks: [c.k] }); });
       cols.sort(function (a, b) { return a.x0 - b.x0; });
       var ci = {}; cols.forEach(function (c, i) { var t = c.t;
         if (ci.desc == null && D.test(t) && !/^(container|code)/i.test(t)) ci.desc = i;
         else if (ci.pallets == null && /pallet|plt/i.test(t)) ci.pallets = i;
         else if (ci.pack == null && /per\s*carton|units?\s*\/|pack(ing)?\s*(size)?$|^size|spec/i.test(t) && !NOTQ.test(t)) ci.pack = i;
-        else if (ci.qty == null && Q.test(t) && !NOTQ.test(t)) ci.qty = i;
+        else if (ci.qty == null && c.parts.some(function (x) { return Q.test(x) && !NOTQ.test(x); })) ci.qty = i;
         else if (ci.unit == null && /^(unit|uom)$/i.test(t)) ci.unit = i; });
       if (ci.desc == null || ci.qty == null) continue;
       var colOf = function (c) { var cx = (c.x0 + c.x1) / 2, best = -1, bd = 1e9; cols.forEach(function (z, i) { var d = cx < z.x0 ? z.x0 - cx : cx > z.x1 ? cx - z.x1 : 0; if (d < bd) { bd = d; best = i; } }); return best; };
@@ -436,12 +437,13 @@
     if (!rec.poNo) top.some(function (t) { var m = /\b([A-Z]{2,8}[\/-][A-Z0-9][A-Z0-9\/-]{3,24})\b/.exec(t); if (m && !/\d{6,}/.test(m[1].replace(/\D/g, '').slice(0, 0) + '') && !/^(P\.?O|TEL|FAX)/i.test(m[1])) { rec.poNo = m[1]; return true; } });
     if (!rec.poDate) top.some(function (t) { var m = /\b(\d{1,2}\s*[\/.-]\s*\d{1,2}\s*[\/.-]\s*\d{4}|[A-Za-z]{3,9}\.?,?\s*\d{1,2},?\s*\d{4})\b/.exec(t); if (m) { var d = cellIn(m[1], 'd'); if (/^\d{4}-\d\d-\d\d$/.test(d)) { rec.poDate = d; return true; } } });
     if (!rec.supplier) A.slice(0, 8).some(function (r) { var t = r.join(' '); if (/(ltd|limited|llc|l\.l\.c|co\.|company|industries|foods?|agro|pvt|gmbh|s\.a\.|inc\b|corp)/i.test(t) && !/baniyas|al-saih|buyer|consignee|to:/i.test(t) && t.length < 70) { rec.supplier = t.replace(/\s*\(.*?star export.*?\)/i, '').replace(/^[a-z ]{3,20}:\s*/i, '').trim(); return true; } });
+    if (rec.supplier && /^[a-z]/.test(rec.supplier)) rec.supplier = rec.supplier.toLowerCase().replace(/\b[a-z]/g, function (c) { return c.toUpperCase(); }).replace(/\b(For|Of|And)\b/g, function (w) { return w.toLowerCase(); });
     if (rec.supplier) rec.supplier = rec.supplier.replace(/^[:\-\s]+/, '').replace(/\s+\./g, '.').replace(/\s*,\s*/g, ', ').replace(/\.$/, '').trim();
     if (!rec.port && H.shipment) { var pm = /\bto\s+([a-z .'-]+?)(?:,|\s+by\b|$)/i.exec(H.shipment); if (pm) rec.port = pm[1].replace(/\s+/g, ' ').trim().replace(/\b\w/g, function (c) { return c.toUpperCase(); }).replace(/^Jebel Ali$/, 'Jebel Ali Port'); }
     // items: the table, else the Excel-style reader, else "Product / Quantity / Packing" lines
     var tb = docTable(lines) || docRows(lines), items = [];
     if (tb && tb.items.some(function (i) { return i.unsure; })) out.warn.push('some quantities were hard to read: check them in Review');
-    if (tb) items = tb.items.map(function (i) { var desc = i.desc.replace(/^[^A-Za-z0-9]+/, '').replace(/\s+/g, ' ').trim(), pack = String(i.pack || '').trim(), pm2 = PACKRE.exec(desc);
+    if (tb) items = tb.items.map(function (i) { var desc = i.desc.replace(/\s*§\s*/g, ' 5 ').replace(/^[^A-Za-z0-9]+/, '').replace(/\s+/g, ' ').trim(), pack = String(i.pack || '').trim(), pm2 = PACKRE.exec(desc);
       if (!pack && pm2) { pack = pm2[1].replace(/\s*[x×*]\s*/, ' x ').replace(/(\d)(g|gm|gms|gr|kg|kgs|ml|l|ltr|lt|oz)\b/i, '$1 $2').toLowerCase(); desc = desc.replace(pm2[1], '').replace(/\s+/g, ' ').trim(); }
       if (/^\d+$/.test(pack)) pack = pack + ' per carton';
       var u = String(i.unit || '').toUpperCase() || unitFrom(i.qt) || unitFrom(tb.qtyHdr);
@@ -454,6 +456,8 @@
       if (mt && any && /fcl/i.test(q)) rec.remarks = (rec.remarks ? rec.remarks + ' · ' : '') + q.replace(/^[:\s]+/, ''); }
     var fw = items.map(function (i) { return String(i.desc || '').split(' ')[0]; });
     items.forEach(function (i, x) { fw.forEach(function (w) { var me = fw[x]; if (w && w.length < me.length && me.length - w.length <= 2 && me.slice(-(w.length - 1)).toLowerCase() === w.slice(1).toLowerCase()) i.desc = w + i.desc.slice(me.length); }); });
+    var pc = {}; items.forEach(function (i) { if (/^\d+ per carton$/.test(i.pack || '')) pc[i.pack] = (pc[i.pack] || 0) + 1; }); var pk2 = Object.keys(pc).sort(function (a, b) { return pc[b] - pc[a]; })[0];
+    if (pk2 && pc[pk2] >= 2) items.forEach(function (i) { if (/^[^\d\s]{1,2}$/.test(String(i.pack || '').trim())) i.pack = pk2; });
     items.forEach(function (i) { if (i.desc && i.desc === i.desc.toLowerCase()) i.desc = i.desc.charAt(0).toUpperCase() + i.desc.slice(1); });
     if (rec.supplier && rec.supplier === rec.supplier.toLowerCase()) rec.supplier = rec.supplier.replace(/\b[a-z]/g, function (c) { return c.toUpperCase(); }).replace(/\b(For|Of|And)\b/g, function (w) { return w.toLowerCase(); });
     if (sc !== 'eg' && !rec.country) { var om = /\b(indian|pakistani|chinese|thai|vietnamese|egyptian|turkish|brazilian|ukrainian|russian)\s+origin\b/i.exec(items.map(function (i) { return i.desc; }).join(' ')); if (om) rec.country = { indian: 'India', pakistani: 'Pakistan', chinese: 'China', thai: 'Thailand', vietnamese: 'Vietnam', egyptian: 'Egypt', turkish: 'Turkey', brazilian: 'Brazil', ukrainian: 'Ukraine', russian: 'Russia' }[om[1].toLowerCase()]; }
