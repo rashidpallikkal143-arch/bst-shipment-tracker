@@ -55,9 +55,9 @@
 
   // ------------------------------------------------------------------ overlays
   document.body.insertAdjacentHTML('beforeend',
-    '<div class="ovl" id="ovpo"><div class="box"><div class="xh"><h2 id="po-t">Purchase orders &amp; schedules</h2><span><button class="p" id="po-add" type="button">+ New PO / schedule</button><button data-x="ovpo" type="button">Close</button></span></div>' +
+    '<div class="ovl" id="ovpo"><div class="box"><div class="xh"><h2 id="po-t">Purchase orders &amp; schedules</h2><span><button class="p" id="po-add" type="button">+ New PO / schedule</button><span id="po-xl"></span><button data-x="ovpo" type="button">Close</button></span></div>' +
     '<div class="mu" style="margin-top:4px">Orders and dispatch schedules made by Baniyas Spike. When the supplier sends the invoice, open the PO and click <b>Make shipment</b> to enter the invoice and container details.</div>' +
-    '<div id="po-ban"></div><div class="xf" id="po-f"></div><div id="po-l"></div></div></div>' +
+    '<div id="po-xp"></div><div id="po-ban"></div><div class="xf" id="po-f"></div><div id="po-l"></div></div></div>' +
     '<div class="ovl" id="ovpf"><div class="box" id="pf"></div></div>' +
     '<div class="ovl" id="ovxl"><div class="box"><div class="xh"><h2 id="xl-t">Excel import &amp; export</h2><span><button data-x="ovxl" type="button">Close</button></span></div>' +
     '<div class="mu" style="margin-top:4px"><b>Export</b> downloads an Excel file you can share, or edit and import back. <b>Import</b> adds new rows and updates rows that still have their ID column. Tip: export first and use that file as the template.</div>' +
@@ -94,7 +94,9 @@
   function openPOs(sc) {
     if (!canView(sc)) { alert('You do not have access to this section.'); return; }
     PO.sc = sc; $('po-t').textContent = 'Purchase orders & schedules · ' + SECN[sc];
-    $('po-add').style.display = canEdit(sc) ? '' : 'none'; showOv('ovpo'); loadPOs();
+    $('po-add').style.display = canEdit(sc) ? '' : 'none'; var tid = sc === 'eg' ? 'egpo' : 'rxpo'; $('po-xp').innerHTML = '';
+    $('po-xl').innerHTML = '<button type="button" data-xe="' + tid + '">⬇ Export to Excel</button>' + (canEdit(sc) ? '<button type="button" data-xt="' + tid + '">📄 Empty Excel template</button><button type="button" data-xi="' + tid + '">⬆ Bulk import from Excel</button>' : '');
+    showOv('ovpo'); loadPOs(); loadXL().catch(function () {});
   }
   function loadPOs() { $('po-l').innerHTML = '<div class="mu" style="padding:20px">Loading…</div>';
     call('getPOs', PO.sc).then(function (l) { PO.list = l; drawPOs(); countBadge(PO.sc, l); })
@@ -234,15 +236,17 @@
       { id: 'rxpo', t: 'Global purchase orders', d: 'One row per item line. Rows with the same PO no. make one PO.', right: 'gEdit' },
       { id: 'rxi', t: 'Global inspections', d: 'Inspection and clearance follow-up records.', right: 'inspEdit' }]
   };
-  var XL = { sc: 'eg', t: null, plan: null };
-  function openXL(sc) { if (!canView(sc)) return; XL.sc = sc; $('xl-t').textContent = 'Excel import & export · ' + SECN[sc]; $('xl-p').innerHTML = '';
+  var XL = { sc: 'eg', t: null, plan: null, out: 'xl-p' };
+  function openXL(sc) { if (!canView(sc)) return; XL.sc = sc; XL.out = 'xl-p'; $('xl-t').textContent = 'Excel import & export · ' + SECN[sc]; $('xl-p').innerHTML = '';
     $('xl-c').innerHTML = XT[sc].filter(function (t) { return !t.view || B.can(t.view); }).map(function (t) { return '<div class="xlc"><h3>' + esc(t.t) + '</h3><div class="mu">' + esc(t.d) + '</div><div class="ab"><button type="button" class="p" data-xe="' + t.id + '">⬇ Export to Excel</button>' +
       (B.can(t.right) ? '<button type="button" data-xi="' + t.id + '">⬆ Import from Excel</button>' : '') + '</div></div>'; }).join('');
     showOv('ovxl'); loadXL().catch(function () {}); }
-  document.addEventListener('click', function (e) { var b = e.target.closest('[data-xe],[data-xi],#xl-go,#xl-cancel'); if (!b || !$('ovxl').contains(b)) return;
-    if (b.id === 'xl-cancel') { $('xl-p').innerHTML = ''; XL.plan = null; return; }
+  document.addEventListener('click', function (e) { var b = e.target.closest('[data-xe],[data-xi],[data-xt],#xl-go,#xl-cancel'); if (!b) return; var inPO = $('ovpo').contains(b); if (!inPO && !$('ovxl').contains(b)) return;
+    if (!b.id) { XL.out = inPO ? 'po-xp' : 'xl-p'; XL.sc = inPO ? PO.sc : XL.sc; }
+    if (b.id === 'xl-cancel') { $(XL.out).innerHTML = ''; XL.plan = null; return; }
     if (b.id === 'xl-go') { runImport(); return; }
-    var t = XT[XL.sc].filter(function (x) { return x.id === (b.dataset.xe || b.dataset.xi); })[0]; if (!t) return;
+    var t = XT[XL.sc].filter(function (x) { return x.id === (b.dataset.xe || b.dataset.xi || b.dataset.xt); })[0]; if (!t) return;
+    if (b.dataset.xt) { poTemplate(t).catch(function (er) { alert(er.message); }); return; }
     if (b.dataset.xe) { b.disabled = true; var lab = b.textContent; b.textContent = 'Preparing…'; doExport(t).catch(function (er) { alert(er.message); }).then(function () { b.disabled = false; b.textContent = lab; }); }
     else { XL.t = t; $('xl-f').value = ''; $('xl-f').click(); } });
   var cellOut = function (v, type) { if (v === '' || v == null) return ''; if (type === 'n') { var n = Number(v); return isFinite(n) ? n : v; } return String(v); };
@@ -262,6 +266,20 @@
       X.utils.book_append_sheet(wb, sheet(X, C_RXI, d.items.map(function (i) { return { key: i.invoice, desc: i.desc, qty: i.qty, unit: i.unit, inv: i.inv, remarks: i.remarks }; })), 'Items');
       X.utils.book_append_sheet(wb, sheet(X, C_RXC, (d.containers || []).map(function (c) { return { key: c.key, no: c.no, size: c.size, seal: c.seal, remarks: c.remarks }; })), 'Containers'); go(); });
   }); }
+  function poTemplate(t) { return loadXL().then(function (X) { var sc = t.id === 'egpo' ? 'eg' : 'rx', wb = X.utils.book_new();
+    var ex = sc === 'eg'
+      ? [{ poNo: 'SCH-DEC-01', kind: 'Schedule', poDate: today(), supplier: 'Supplier name', brand: 'Mahra', origin: 'Egypt', month: monOf(today()), sched: today(), status: 'Open', i_desc: 'Green Peas', i_pack: '4 x 2.5 kg', i_ctn: 1200, i_pallets: 12 },
+         { poNo: 'SCH-DEC-01', i_desc: 'Cut Green Beans', i_pack: '4 x 2.5 kg', i_ctn: 1100, i_pallets: 10 }]
+      : [{ poNo: 'BST/PO/2026-200', kind: 'Purchase order', poDate: today(), supplier: 'Supplier name', shipper: 'Shipper name', origin: 'India', sched: today(), port: 'Jebel Ali Port', status: 'Open', i_desc: 'Basmati rice 25 kg', i_qty: 1000, i_unit: 'BAG' },
+         { poNo: 'BST/PO/2026-200', i_desc: 'Sona masoori rice 5 kg', i_qty: 500, i_unit: 'BAG' }];
+    X.utils.book_append_sheet(wb, sheet(X, C_PO, ex), 'Purchase orders');
+    var help = [['How to fill this sheet'], [''], ['• One row per item line. Several rows with the same "PO / schedule no." make ONE purchase order with several items.'],
+      ['• PO details (date, supplier, status…) only need to be on the first row of each PO.'], ['• Leave "PO ID" empty for new POs. Rows exported from the app keep their PO ID so the import updates them.'],
+      ['• Dates: use the date format of your Excel, or type them like 2026-12-05.'], ['• Status: Open, Partly shipped, Fully shipped or Cancelled (empty = Open).'],
+      ['• ' + (sc === 'eg' ? 'Egypt: fill CTN and Pallets for each item; Month like DEC 2026.' : 'Global: fill Qty and Unit for each item (e.g. BAG, CTN, KG, MT).')],
+      ['• Delete the two example rows before importing.'], [''], ['Then: Purchase orders / schedules → ⬆ Bulk import from Excel → choose this file → check the preview → Import.']];
+    var hs = X.utils.aoa_to_sheet(help); hs['!cols'] = [{ wch: 110 }]; X.utils.book_append_sheet(wb, hs, 'How to fill');
+    X.writeFile(wb, 'BST ' + (sc === 'eg' ? 'Egypt' : 'Global') + ' purchase orders template.xlsx'); }); }
   // ---- import
   var normH = function (h) { return String(h || '').toLowerCase().replace(/\(.*?\)/g, '').replace(/[^a-z0-9]+/g, ' ').trim(); };
   function cellIn(v, type) { if (v === null || v === undefined) return '';
@@ -275,9 +293,9 @@
     return { rows: rows, miss: cols.filter(function (c, k) { return idx[k] < 0 && c[2] !== 'ro'; }).map(function (c) { return c[0]; }), found: cols.filter(function (c, k) { return idx[k] >= 0 && c[2] !== 'ro'; }).map(function (c) { return c[1]; }) }; }
   var findSheet = function (wb, names) { var n = wb.SheetNames.filter(function (s) { return names.some(function (x) { return s.toLowerCase().indexOf(x) >= 0; }); })[0]; return wb.Sheets[n || wb.SheetNames[0]]; };
   $('xl-f').onchange = function () { var file = this.files && this.files[0], t = XL.t; if (!file || !t) return;
-    $('xl-p').innerHTML = '<div class="xlp">Reading ' + esc(file.name) + '…</div>';
+    $(XL.out).innerHTML = '<div class="xlp">Reading ' + esc(file.name) + '…</div>';
     Promise.all([loadXL(), file.arrayBuffer()]).then(function (x) { var X = x[0], wb = X.read(x[1], { type: 'array', cellDates: true }); return planImport(t, X, wb); })
-      .then(function (plan) { XL.plan = plan; showPlan(plan); }).catch(function (e) { $('xl-p').innerHTML = '<div class="xlp bad">' + esc(e.message) + '</div>'; }); };
+      .then(function (plan) { XL.plan = plan; showPlan(plan); }).catch(function (e) { $(XL.out).innerHTML = '<div class="xlp bad">' + esc(e.message) + '</div>'; }); };
   function planImport(t, X, wb) {
     var plan = { t: t, jobs: [], bad: [], miss: [], newN: 0, updN: 0 };
     var addJob = function (label, isUpd, fn) { plan.jobs.push({ label: label, fn: fn }); if (isUpd) plan.updN++; else plan.newN++; };
@@ -331,14 +349,14 @@
     return Promise.reject(new Error('Unknown table'));
   }
   function showPlan(p) {
-    $('xl-p').innerHTML = '<div class="xlp"><b>' + esc(p.t.t) + '</b>: ' + p.newN + ' new, ' + p.updN + ' to update' + (p.bad.length ? ', <span class="bad">' + p.bad.length + ' row(s) skipped</span>' : '') +
+    $(XL.out).innerHTML = '<div class="xlp"><b>' + esc(p.t.t) + '</b>: ' + p.newN + ' new, ' + p.updN + ' to update' + (p.bad.length ? ', <span class="bad">' + p.bad.length + ' row(s) skipped</span>' : '') +
       (p.miss.length ? '<div class="mu" style="margin-top:4px">Columns not found in the file (left unchanged): ' + esc(p.miss.slice(0, 12).join(', ')) + (p.miss.length > 12 ? '…' : '') + '</div>' : '') +
       (p.bad.length ? '<div class="bad" style="margin-top:6px;font-size:12.5px">' + p.bad.slice(0, 15).map(esc).join('<br>') + (p.bad.length > 15 ? '<br>…' : '') + '</div>' : '') +
       (p.jobs.length ? '<div class="mu" style="margin-top:6px;font-size:12px;max-height:120px;overflow:auto">' + p.jobs.slice(0, 40).map(function (j) { return esc(j.label); }).join('<br>') + (p.jobs.length > 40 ? '<br>… and ' + (p.jobs.length - 40) + ' more' : '') + '</div>' : '') +
-      '<div style="display:flex;gap:8px;margin-top:10px"><button class="p" type="button" id="xl-go"' + (p.jobs.length ? '' : ' disabled') + '>Import ' + p.jobs.length + ' row(s)</button><button type="button" id="xl-cancel">Cancel</button><span class="mu" id="xl-s" style="align-self:center"></span></div></div>'; }
+      '<div style="display:flex;gap:8px;margin-top:10px"><button class="p" type="button" id="xl-go"' + (p.jobs.length ? '' : ' disabled') + '>Import ' + p.jobs.length + (/po$/.test(p.t.id) ? ' purchase order(s)' : ' row(s)') + '</button><button type="button" id="xl-cancel">Cancel</button><span class="mu" id="xl-s" style="align-self:center"></span></div></div>'; }
   function runImport() { var p = XL.plan; if (!p || !p.jobs.length) return; var ok = 0, fail = [], i = 0; $('xl-go').disabled = true; $('xl-cancel').disabled = true;
-    var next = function () { if (i >= p.jobs.length) { $('xl-s').textContent = ''; $('xl-p').innerHTML = '<div class="xlp"><b>Import finished:</b> ' + ok + ' saved' + (fail.length ? ', <span class="bad">' + fail.length + ' failed</span><div class="bad" style="font-size:12.5px;margin-top:4px">' + fail.slice(0, 15).map(esc).join('<br>') + '</div>' : '') + '.</div>'; XL.plan = null;
-        reload(XL.sc); refreshBadges(); return; }
+    var next = function () { if (i >= p.jobs.length) { $('xl-s').textContent = ''; $(XL.out).innerHTML = '<div class="xlp"><b>Import finished:</b> ' + ok + ' saved' + (fail.length ? ', <span class="bad">' + fail.length + ' failed</span><div class="bad" style="font-size:12.5px;margin-top:4px">' + fail.slice(0, 15).map(esc).join('<br>') + '</div>' : '') + '.</div>'; XL.plan = null;
+        reload(XL.sc); refreshBadges(); if (XL.out === 'po-xp') loadPOs(); return; }
       var j = p.jobs[i++]; $('xl-s').textContent = 'Saving ' + i + ' of ' + p.jobs.length + '…';
       Promise.resolve().then(j.fn).then(function () { ok++; }, function (e) { fail.push(j.label + ': ' + e.message); }).then(next); };
     next(); }
