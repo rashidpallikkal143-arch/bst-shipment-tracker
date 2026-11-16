@@ -212,7 +212,7 @@
     return xlLoading; }
   // [header, key, type]; type: d = date, n = number, ro = read only (export only)
   var C_EG = [['Row ID (keep for updates)', 'row', 'id'], ['Month', 'month'], ['SR no.', 'sr', 'n'], ['Planned dispatch', 'sched', 'd'], ['Actual dispatch', 'actual', 'd'], ['Supplier', 'supplier'], ['Invoice no.', 'inv'], ['PO / schedule no.', 'poNo'],
-    ['Batch', 'batch'], ['Brand', 'brand'], ['Origin', 'origin'], ['Container no.', 'container'], ['Vehicle no.', 'vehicle'], ['Driver', 'driver'], ['Driver mobile', 'mobile'], ['Items (one per line: Item (pack): CTN ctn / pallets plt)', 'items'],
+    ['Batch', 'batch'], ['Brand', 'brand'], ['Origin', 'origin'], ['Container no.', 'container'], ['Vehicle no.', 'vehicle'], ['Driver', 'driver'], ['Driver mobile', 'mobile'], ['Items (one per line: Item (pack): CTN ctn / pallets plt [Batch: no.])', 'items'],
     ['Total CTN', 'ctn', 'n'], ['Total pallets', 'pallets', 'n'], ['Invoice amount ($)', 'invAmt', 'n'], ['Freight paid ($)', 'frAmt', 'n'], ['Supplier PO status', 'po'], ['Supplier payment', 'supPay'], ['Freight payment', 'frPay'],
     ['Loading & dispatch', 'loading'], ['KSA border', 'ksa'], ['Ghuwaifat border', 'ghu'], ['Warehouse delivery', 'wh'], ['Purchase entry', 'purchase'], ['Actual delivery date', 'delivered', 'd'], ['Remarks', 'remarks'],
     ['ETA (calculated)', 'eta', 'ro'], ['Position (calculated)', 'position', 'ro'], ['Alert (calculated)', 'alert', 'ro']];
@@ -390,7 +390,7 @@
         if (L.cells.some(function (c) { return /^(total|grand\s*total|sub\s*-?\s*total)\b/i.test(c.t); })) break;
         L.cells.forEach(function (c) { var i = colOf(c); row[i] = (row[i] ? row[i] + ' ' : '') + c.t; });
         var d = String(row[ci.desc] || '').trim(), qn = (String(row[ci.qty] || '').replace(/,/g, '').match(/\d+(?:\.\d+)?/) || [])[0];
-        var info = /^(pro|exp|mfg|lot|batch|hs\s*code|production|expiry|best\s*before|net|gross)\b/i.test(d);
+        var info = /^(pro|exp|mfg|lot|batch|hs\s*code|production|expiry|best\s*before|net|gross)\b/i.test(d), lm = /^(?:lot|batch)\s*(?:no|number|#)?\.?\s*[:.]?\s*([A-Z0-9][A-Z0-9\/-]{1,24})/i.exec(d); if (lm && cur && !cur.batch) cur.batch = lm[1];
         if (d && !info && /[a-z]{3}/i.test(d) && (!cur || cur.q)) { cur = { desc: d, q: '', pack: row[ci.pack] || '', unit: row[ci.unit] || '', pal: row[ci.pallets] || '' }; items.push(cur); idle = 0; }
         else if (d && !info && cur && !cur.q && /[a-z]{3}/i.test(d)) cur.desc += ' ' + d;
         if (cur && qn && !cur.q) { cur.q = qn; cur.qt = row[ci.qty]; idle = 0; } else if (!d) idle++;
@@ -447,7 +447,7 @@
       if (!pack && pm2) { pack = pm2[1].replace(/\s*[x×*]\s*/, ' x ').replace(/(\d)(g|gm|gms|gr|kg|kgs|ml|l|ltr|lt|oz)\b/i, '$1 $2').toLowerCase(); desc = desc.replace(pm2[1], '').replace(/\s+/g, ' ').trim(); }
       if (/^\d+$/.test(pack)) pack = pack + ' per carton';
       var u = String(i.unit || '').toUpperCase() || unitFrom(i.qt) || unitFrom(tb.qtyHdr);
-      var it = { desc: desc.replace(/\b([A-Z])([A-Z]+)\b/g, function (w, a, b) { return a + b.toLowerCase(); }), pack: pack, qty: i.q, unit: u, ctn: '', pallets: String(i.pal || '').replace(/[^\d.]/g, '') };
+      var it = { batch: i.batch || '', desc: desc.replace(/\b([A-Z])([A-Z]+)\b/g, function (w, a, b) { return a + b.toLowerCase(); }), pack: pack, qty: i.q, unit: u, ctn: '', pallets: String(i.pal || '').replace(/[^\d.]/g, '') };
       if (sc === 'eg' && (!u || u === 'CTN')) { it.ctn = i.q; it.qty = ''; it.unit = 'CTN'; } return it; });
     else if (fr.items.length) items = fr.items;
     else if (H.product) { H.product = H.product.replace(/^[^A-Za-z0-9]+/, ''); var q = String(H.quantity || ''), mt = /(\d[\d,.]*)\s*(?:mts?|m\.?\s*tons?|metric\s*tons?|mt)\b/i.exec(q), any = /(\d[\d,.]*)\s*([a-z]+)?/i.exec(q);
@@ -581,8 +581,8 @@
   function egDate(r, k) { var d = k === 'disp' ? (r.actual || r.sched) : k === 'arr' ? r.eta : k === 'del' ? r.delivered : (r.actual || r.sched || r.eta || r.delivered); return String(d || '').slice(0, 10); }
   function rxDate(s, k) { var d = k === 'disp' ? (s.atd || s.etd || s.piDate) : k === 'arr' ? (s.ata || s.eta) : k === 'del' ? s.whDate : (s.atd || s.etd || s.ata || s.eta || s.whDate || s.piDate); return String(d || '').slice(0, 10); }
   var RXDONE = ['Delivered to warehouse', 'Purchase not booked', 'Purchase booked'];
-  function egItems(t) { return String(t || '').split('\n').map(function (x) { return x.trim(); }).filter(Boolean).map(function (x) { var m = /^(.*?)\s*(?:\(([^)]*)\))?\s*(?::\s*([\d,.]+)\s*ctn)?\s*(?:\/\s*([\d,.]+)\s*plt)?\s*$/i.exec(x) || [];
-    return { n: (m[1] || x).trim(), p: m[2] || '', c: num((m[3] || '').replace(/,/g, '')), l: num((m[4] || '').replace(/,/g, '')) }; }); }
+  function egItems(t) { return String(t || '').split('\n').map(function (x) { return x.trim(); }).filter(Boolean).map(function (x) { var bm = /\s*\[\s*batch\s*:?\s*([^\]]*)\]\s*$/i.exec(x), b = bm ? bm[1].trim() : ''; if (bm) x = x.slice(0, bm.index); var m = /^(.*?)\s*(?:\(([^)]*)\))?\s*(?::\s*([\d,.]+)\s*ctn)?\s*(?:\/\s*([\d,.]+)\s*plt)?\s*$/i.exec(x) || [];
+    return { n: (m[1] || x).trim(), p: m[2] || '', c: num((m[3] || '').replace(/,/g, '')), l: num((m[4] || '').replace(/,/g, '')), b: b }; }); }
   function egCtn(r) { if (num(r.ctn)) return num(r.ctn); var c = 0; egItems(r.items).forEach(function (i) { c += i.c; }); return c; }
   function egPlt(r) { if (num(r.pallets)) return num(r.pallets); var c = 0; egItems(r.items).forEach(function (i) { c += i.l; }); return c; }
   function tbl(head, rows, foot) { return '<table><thead><tr>' + head.map(function (h) { return '<th>' + h + '</th>'; }).join('') + '</tr></thead><tbody>' + rows.map(function (r) { return '<tr>' + r.map(function (c) { return '<td>' + c + '</td>'; }).join('') + '</tr>'; }).join('') +
@@ -721,12 +721,12 @@
       else if (cur.toLowerCase() !== v.toLowerCase()) kept.push(label + ': form has "' + cur + '", document says "' + v + '"'); };
     var itemsOk = o.items.length, Q = function (s) { return document.querySelector(s); };
     if (sc === 'eg') { var E2 = function (k) { return Q('#eform [data-e="' + k + '"]'); };
-      set(E2('inv'), o.inv, 'Invoice no.'); set(E2('supplier'), o.supplier, 'Supplier'); set(E2('origin'), o.origin, 'Origin'); set(E2('brand'), o.brand, 'Brand'); set(E2('batch'), o.batch, 'Batch'); set(E2('invAmt'), o.amount, 'Invoice amount');
+      set(E2('inv'), o.inv, 'Invoice no.'); set(E2('supplier'), o.supplier, 'Supplier'); set(E2('origin'), o.origin, 'Origin'); set(E2('brand'), o.brand, 'Brand'); set(E2('invAmt'), o.amount, 'Invoice amount');
       set(E2('container'), o.conts[0], 'Container no.'); if (o.conts.length > 1) kept.push('More containers in the document: ' + o.conts.slice(1).join(', ') + ' (one container per Egypt entry)');
       if (itemsOk) { var rows = [].slice.call(document.querySelectorAll('#eits .er')), filled = rows.filter(function (x) { return x.querySelector('.in').value.trim(); });
         if (!filled.length || confirm('Replace the ' + filled.length + ' item line(s) in the form with the ' + itemsOk + ' item(s) read from the document?')) {
           rows.forEach(function (x) { x.remove(); });
-          o.items.forEach(function (i) { var c = i.ctn || (/^(CTN|CARTON|CASE|BOX)$/i.test(i.unit || '') || !i.unit ? i.qty : ''); egAddItem({ n: i.desc, p: i.pack, c: c, l: i.pallets }); });
+          o.items.forEach(function (i) { var c = i.ctn || (/^(CTN|CARTON|CASE|BOX)$/i.test(i.unit || '') || !i.unit ? i.qty : ''); egAddItem({ n: i.desc, p: i.pack, c: c, l: i.pallets, b: i.batch || (o.items.length === 1 ? o.batch : '') }); });
           document.querySelectorAll('#eits .er input').forEach(function (x) { if (x.value) mark(x); }); window.EITEMS = true; try { EITEMS = true; } catch (e) {} egTotals(); } }
       if (window.DIRTY) DIRTY.ov3 = true;
     } else { var F = function (k) { return Q('#f [data-k="' + k + '"]'); };

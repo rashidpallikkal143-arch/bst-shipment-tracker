@@ -69,7 +69,7 @@ body:not(.admin) .adm{display:none!important}.pk{display:flex;flex-wrap:wrap;gap
 .g{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px}label{font-size:12px;color:var(--mu);display:block}label input,label select,label textarea{width:100%;margin-top:2px}
 .kv{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px 16px}.kv div span{display:block;font-size:11px;color:var(--mu);text-transform:uppercase;letter-spacing:.4px}.kv div b{font-weight:600}
 .ms{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}h3.sec{margin:16px 0 6px;font-size:14px}
-.ir,.er{display:grid;gap:8px;align-items:end;margin-top:8px;padding-left:10px;border-left:3px solid var(--ac)}.ir{grid-template-columns:2fr .8fr 1fr 1.3fr 1.3fr auto}.ivr,.cnr{display:grid;gap:8px;align-items:end;margin-top:8px;padding-left:10px;border-left:3px solid var(--bl)}.ivr{grid-template-columns:minmax(0,420px) auto;justify-content:start}.cnr{grid-template-columns:2fr 1fr 1.2fr 1.6fr auto}.sech{display:flex;justify-content:space-between;align-items:center;margin-top:18px;gap:8px}.sech b{font-size:14px}.er{grid-template-columns:2fr 1.3fr 1fr 1fr auto}
+.ir,.er{display:grid;gap:8px;align-items:end;margin-top:8px;padding-left:10px;border-left:3px solid var(--ac)}.ir{grid-template-columns:2fr .8fr 1fr 1.3fr 1.3fr auto}.ivr,.cnr{display:grid;gap:8px;align-items:end;margin-top:8px;padding-left:10px;border-left:3px solid var(--bl)}.ivr{grid-template-columns:minmax(0,420px) auto;justify-content:start}.cnr{grid-template-columns:2fr 1fr 1.2fr 1.6fr auto}.sech{display:flex;justify-content:space-between;align-items:center;margin-top:18px;gap:8px}.sech b{font-size:14px}.er{grid-template-columns:2fr 1.2fr 1.1fr .8fr .8fr auto}
 .fab{position:fixed;right:22px;bottom:22px;width:58px;height:58px;border-radius:50%;background:var(--ac);color:#fff;font-size:32px;line-height:1;border:0;padding:0;box-shadow:0 8px 22px rgba(0,166,81,.5);z-index:40}.fab:hover{background:var(--acd)}
 .subtabs{display:flex;gap:6px;margin-bottom:12px}.subtabs button{border-radius:8px;padding:7px 16px;font-weight:600}.subtabs button.on{background:#e6f6ee;border-color:var(--ac);color:var(--acd)}
 .mtabs{display:flex;gap:6px;overflow-x:auto;margin-bottom:10px;padding-bottom:4px}.mtabs button{white-space:nowrap;border-radius:8px;padding:6px 14px}.mtabs button.on{background:var(--ac);border-color:var(--ac);color:#fff}
@@ -363,7 +363,7 @@ var days=function(a,b){return Math.round((new Date(a)-new Date(b))/864e5)};
 var TD=new Date().toISOString().slice(0,10);
 var DIRTY={},FORMS={ov:'sv',ov3:'esv',ovi:'i-sv',ovm:'m-sv'},DOWN=null;
 var show=function(i){DIRTY[i]=false;$(i).style.display='block'},hide=function(i){$(i).style.display='none'};
-var itemNames=function(t){return String(t||'').split('\n').map(function(l){return l.split(/[(:]/)[0].trim()}).filter(Boolean)};
+var itemNames=function(t){return String(t||'').split('\n').map(function(l){return l.split(/[(:\[]/)[0].trim()}).filter(Boolean)};
 var itemSummary=function(t){var n=itemNames(t);return n.length?esc(n[0])+(n.length>1?' <span class="mu">+'+(n.length-1)+' more</span>':''):'<span class="mu">-</span>'};
 function opts(a,v){return '<option value=""></option>'+a.map(function(x){return '<option'+(x===v?' selected':'')+'>'+esc(x)+'</option>'}).join('')}
 function cards(arr,sc){return arr.map(function(c){return '<div class="c '+(c[3]||'')+(c[4]?' k':'')+'"'+(c[4]?' data-d="'+sc+':'+c[4]+'"':'')+'><span class="mu">'+c[0]+'</span><b class="'+(c[2]||'')+'">'+c[1]+'</b></div>'}).join('')}
@@ -460,7 +460,7 @@ function trDetail(){var el=$('tr-det'),r=TR.list[TR.sel];$('tr-vt').style.displa
  if(r.sc==='eg'){var ks=['po','supPay','frPay','loading','ksa','ghu','wh','purchase'];
   h='<h3>'+esc(egRef(x))+' · '+esc(x.position||'')+' <span class="mu" style="font-weight:400">· '+esc(x.month)+' SR '+esc(x.sr)+'</span></h3><div class="tr-tl">'+ks.map(function(k,i){var v=x[k]||'',dn=(EG_DV[k]||[]).indexOf(v)>=0,cu=!dn&&!!v;
    return '<div class="tr-st '+(dn?'dn':cu?'cu':'')+'"><i>'+(dn?'✓':i+1)+'</i><b>'+esc(MSL[k].replace(/ \(.*\)/,''))+'</b><span>'+esc(v||'Not updated')+'</span></div>'}).join('')+'</div>'
-  +'<div class="tr-pl">'+r.items.map(function(i){var on=r.hit.indexOf(i.n+'|'+(i.p||''))>=0;return '<div class="'+(on?'hit':'')+'"><span>'+esc(i.n)+(i.p?' ('+esc(i.p)+')':'')+'</span><span>'+(i.c?fmt(i.c)+' ctn':'')+(i.l?' · '+esc(i.l)+' plt':'')+'</span></div>'}).join('')+'</div>'
+  +'<div class="tr-pl">'+r.items.map(function(i){var on=r.hit.indexOf(i.n+'|'+(i.p||''))>=0;return '<div class="'+(on?'hit':'')+'"><span>'+esc(i.n)+(i.p?' ('+esc(i.p)+')':'')+(i.b?' <span class="mu">· Batch '+esc(i.b)+'</span>':'')+'</span><span>'+(i.c?fmt(i.c)+' ctn':'')+(i.l?' · '+esc(i.l)+' plt':'')+'</span></div>'}).join('')+'</div>'
   +'<div class="tr-kv">'+[['Invoice',x.inv],['Supplier',x.supplier],['Container',x.container],['Vehicle',x.vehicle],['Driver',x.driver],['Driver mobile',x.mobile],['Scheduled dispatch',x.sched],['Actual dispatch',x.actual],
    ['Estimated arrival',x.eta],['Delivered',x.delivered],['Delivery alert',x.alert],['Total CTN',fmt(x.ctn)],['Batch',x.batch],['Inspection',null]].map(function(p){return '<div><span>'+p[0]+'</span>'+(p[1]===null?inspChip('eg',egRef(x)):esc(p[1]||'-'))+'</div>'}).join('')+'</div>'}
  else{var si=stIdx(x),sg=D.stages.filter(function(s){return s!=='Purchase not booked'});
@@ -833,12 +833,12 @@ $('eq').addEventListener('input',renderEgReport);$('es').addEventListener('chang
 $('ed').onclick=function(){eDir=-eDir;this.textContent=eDir>0?'↑ Asc':'↓ Desc';renderEgReport()};
 
 /* ---- Egypt: new container entry ---- */
-var FEG=[['sr','SR no.','number'],['sched','Planned dispatch date (Egypt)','date'],['actual','Actual dispatch from Egypt','date'],['supplier','Supplier name'],['inv','Invoice no. *'],['poNo','PO / schedule no.'],['batch','Batch number'],['brand','Brand'],['origin','Origin'],['container','Container no.'],['vehicle','Vehicle number'],['driver','Driver name'],['mobile','Driver mobile number'],['invAmt','Invoice amount to supplier ($)','number'],['frAmt','Total paid freight amount ($)','number'],['delivered','Actual delivery date','date']];
+var FEG=[['sr','SR no.','number'],['sched','Planned dispatch date (Egypt)','date'],['actual','Actual dispatch from Egypt','date'],['supplier','Supplier name'],['inv','Invoice no. *'],['poNo','PO / schedule no.'],['brand','Brand'],['origin','Origin'],['container','Container no.'],['vehicle','Vehicle number'],['driver','Driver name'],['mobile','Driver mobile number'],['invAmt','Invoice amount to supplier ($)','number'],['frAmt','Total paid freight amount ($)','number'],['delivered','Actual delivery date','date']];
 var MSL={po:'Supplier PO status',supPay:'Supplier payment (Advance / Balance)',frPay:'Freight payment (Truck)',loading:'Loading & dispatch',ksa:'KSA border clearance',ghu:'Ghuwaifat border clearance (UAE)',wh:'Warehouse delivery',purchase:'Purchase entry (system booking)'};
 var EGEDIT=null,EITEMS=false;
 function egAddItem(it){it=it||{};var d=document.createElement('div');d.className='er';
- d.innerHTML='<label>Item<input class="in" placeholder="e.g. Green Peas"></label><label>Pack size<input class="ip" placeholder="e.g. 4 x 2.5 kg"></label><label>CTN<input class="ic" type="number" min="0" step="any"></label><label>Pallets<input class="il" type="number" min="0" step="any"></label><button type="button" class="x">✕</button>';
- d.querySelector('.in').value=it.n||'';d.querySelector('.ip').value=it.p||'';d.querySelector('.ic').value=it.c||'';d.querySelector('.il').value=it.l||'';
+ d.innerHTML='<label>Item<input class="in" placeholder="e.g. Green Peas"></label><label>Pack size<input class="ip" placeholder="e.g. 4 x 2.5 kg"></label><label>Batch no.<input class="ib" placeholder="e.g. 2611A"></label><label>CTN<input class="ic" type="number" min="0" step="any"></label><label>Pallets<input class="il" type="number" min="0" step="any"></label><button type="button" class="x">✕</button>';
+ d.querySelector('.in').value=it.n||'';d.querySelector('.ip').value=it.p||'';d.querySelector('.ib').value=it.b||'';d.querySelector('.ic').value=it.c||'';d.querySelector('.il').value=it.l||'';
  d.querySelector('.x').onclick=function(){d.remove();EITEMS=true;DIRTY.ov3=true;egTotals()};$('eits').appendChild(d)}
 function egTotals(){var c=0,l=0;document.querySelectorAll('#eits .er').forEach(function(r){c+=Number(r.querySelector('.ic').value)||0;l+=Number(r.querySelector('.il').value)||0});
  var ec=document.querySelector('#eform [data-e="ctn"]'),el=document.querySelector('#eform [data-e="pallets"]');if(ec&&!ec.dataset.man)ec.value=c||'';if(el&&!el.dataset.man)el.value=l||''}
@@ -848,8 +848,9 @@ function egCols(){var m=$('ef-m').value,cols=((E.cols&&E.cols[m])||[]).concat(['
  var sr=document.querySelector('#eform [data-e="sr"]');if(sr&&!sr.dataset.man)sr.value=mx+1;var og=document.querySelector('#eform [data-e="origin"]');if(og&&!og.value&&!EGEDIT)og.value='Egypt'}
 function egOpt(k,v){var l=((E.lists&&E.lists[k])||[]).slice();if(v&&l.indexOf(v)<0)l.push(v);return opts(l,v)}
 function egParseItems(t){return String(t||'').split('\n').map(function(x){return x.trim()}).filter(Boolean).map(function(x){
+ var bm=/\s*\[\s*batch\s*:?\s*([^\]]*)\]\s*$/i.exec(x),b=bm?bm[1].trim():'';if(bm)x=x.slice(0,bm.index);
  var m=/^(.*?)\s*(?:\(([^)]*)\))?\s*(?::\s*([\d,.]+)\s*ctn)?\s*(?:\/\s*([\d,.]+)\s*plt)?\s*$/i.exec(x);
- if(!m||!m[1])return {n:x};return {n:m[1].trim(),p:m[2]||'',c:m[3]?m[3].replace(/,/g,''):'',l:m[4]?m[4].replace(/,/g,''):''}})}
+ if(!m||!m[1])return {n:x,b:b};return {n:m[1].trim(),p:m[2]||'',c:m[3]?m[3].replace(/,/g,''):'',l:m[4]?m[4].replace(/,/g,''):'',b:b}})}
 function openEg(r,pre){if(!E){alert('Egypt data is still loading.');return}r=(r&&r.month)?r:null;pre=r?null:(pre||null);EGEDIT=r;EITEMS=!!pre;
  var cur=r?r.month:((pre&&pre.month&&E.months.indexOf(pre.month)>=0?pre.month:(month!=='ALL'?month:E.months[E.months.length-1]))||''),val=function(k){var o=r||pre;return o&&o[k]!=null?o[k]:''};
  $('eform').innerHTML='<div style="display:flex;justify-content:space-between;align-items:center"><h2 style="margin:0;font-size:17px">'+(r?'Edit container entry (Egypt) · '+esc(r.month)+' · SR '+esc(r.sr):pre?'New container entry from '+esc(pre.poNo||'purchase order'):'New container entry (Egypt)')+'</h2><button data-x="ov3" type="button">Close</button></div>'
@@ -861,7 +862,8 @@ function openEg(r,pre){if(!E){alert('Egypt data is still loading.');return}r=(r&
  +'<label data-fk="remarks" style="margin-top:10px">Remarks<textarea data-e="remarks" rows="2">'+esc(val('remarks'))+'</textarea></label>'
  +'<div class="mu" style="margin-top:8px">Estimated arrival, current position, milestones % and delivery alert are calculated by the sheet.</div>'
  +'<div style="display:flex;justify-content:space-between;gap:8px;margin-top:14px"><button id="edel" type="button" style="'+(r?'':'visibility:hidden')+'">Delete</button><span><button data-x="ov3" type="button">Cancel</button> <button class="p" id="esv" type="button">'+(r?'Save changes':'Save to Egypt sheet')+'</button></span></div>';
- var its=(r||pre)?egParseItems((r||pre).items):[];if(its.length)its.forEach(egAddItem);else egAddItem();
+ var its=(r||pre)?egParseItems((r||pre).items):[],ob=String(val('batch')||'').trim();if(ob&&its.length&&its.every(function(i){return !i.b})){its.forEach(function(i){i.b=ob});EITEMS=true}
+ if(its.length)its.forEach(egAddItem);else egAddItem();
  if(r){var sr=document.querySelector('#eform [data-e="sr"]');if(sr)sr.dataset.man=1;['ctn','pallets'].forEach(function(k){var e=document.querySelector('#eform [data-e="'+k+'"]');if(e&&val(k)!=='')e.dataset.man=1})}
  egCols();show('ov3');
  $('ef-m').onchange=function(){var sr=document.querySelector('#eform [data-e="sr"]');if(sr)delete sr.dataset.man;egCols()};
@@ -869,8 +871,8 @@ function openEg(r,pre){if(!E){alert('Egypt data is still loading.');return}r=(r&
  var ref=r?{row:r.row,orig:{sr:r.sr,container:r.container,inv:r.inv}}:{};
  $('esv').onclick=function(){var v={};document.querySelectorAll('#eform [data-e]').forEach(function(e){if(e.closest('[data-fk]').style.display!=='none')v[e.dataset.e]=e.value.trim()});
   if(r&&!EITEMS){v.items=r.items||''}else{
-   var lines=[];document.querySelectorAll('#eits .er').forEach(function(x){var n=x.querySelector('.in').value.trim(),p=x.querySelector('.ip').value.trim(),c=x.querySelector('.ic').value.trim(),l=x.querySelector('.il').value.trim();if(!n)return;lines.push(n+(p?' ('+p+')':'')+(c?': '+Number(c).toLocaleString('en-US')+' ctn':'')+(l?' / '+l+' plt':''))});
-   v.items=lines.join('\n')}
+   var lines=[],bs=[];document.querySelectorAll('#eits .er').forEach(function(x){var n=x.querySelector('.in').value.trim(),p=x.querySelector('.ip').value.trim(),c=x.querySelector('.ic').value.trim(),l=x.querySelector('.il').value.trim(),b=x.querySelector('.ib').value.trim().replace(/[\[\]]/g,'');if(!n)return;lines.push(n+(p?' ('+p+')':'')+(c?': '+Number(c).toLocaleString('en-US')+' ctn':'')+(l?' / '+l+' plt':'')+(b?' [Batch: '+b+']':''));if(b&&bs.indexOf(b)<0)bs.push(b)});
+   v.items=lines.join('\n');v.batch=bs.join(', ')}
   if(!r&&!v.inv){alert('Invoice number is required.');return}
   if(!v.items&&!v.container&&!v.supplier){alert('Enter at least one item, the container number or the supplier.');return}
   var m=$('ef-m').value;$('esv').disabled=true;$('esv').textContent='Saving…';
@@ -878,7 +880,7 @@ function openEg(r,pre){if(!E){alert('Egypt data is still loading.');return}r=(r&
    .withFailureHandler(function(e){$('esv').disabled=false;$('esv').textContent=r?'Save changes':'Save to Egypt sheet';alert(e.message)}).saveEgyptEntry({month:m,v:v,row:ref.row,orig:ref.orig},APW)};
  if(r)$('edel').onclick=function(){if(!confirm('Delete container '+(r.container||('SR '+r.sr))+' from '+r.month+'?\nThe row\'s entries are cleared; the sheet formulas stay.'))return;
   google.script.run.withSuccessHandler(function(){DIRTY.ov3=false;hide('ov3');hide('ov2');$('msg').textContent='Deleted from '+r.month+'.';loadEg()}).withFailureHandler(function(e){alert(e.message)}).deleteEgyptEntry({month:r.month,row:ref.row,orig:ref.orig},APW)}}
-$('eform').addEventListener('input',function(e){var t=e.target;if(t.matches('[data-e="ctn"],[data-e="pallets"],[data-e="sr"]')&&e.isTrusted)t.dataset.man=1;if(t.matches('.in,.ip,.ic,.il'))EITEMS=true;if(t.matches('.ic,.il'))egTotals()});
+$('eform').addEventListener('input',function(e){var t=e.target;if(t.matches('[data-e="ctn"],[data-e="pallets"],[data-e="sr"]')&&e.isTrusted)t.dataset.man=1;if(t.matches('.in,.ip,.ib,.ic,.il'))EITEMS=true;if(t.matches('.ic,.il'))egTotals()});
 $('eadd').onclick=function(){openEg()};$('fab').onclick=function(){openEg()};
 
 /* ===================== BST GLOBAL IMPORT SHIPMENTS ===================== */
