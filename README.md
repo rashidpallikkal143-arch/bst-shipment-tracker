@@ -113,3 +113,14 @@ The Egypt container entry form and the Global shipment form have a **📄 Fill f
 Pick one or more documents (commercial invoice, packing list, bill of lading). The app reads them in the browser and fills only the empty fields:
 invoice no., supplier / shipper, origin, brand, batch / lot no., invoice amount (Egypt), container no. (checked with the ISO check digit), size, seal, B/L no., vessel and voyage, final port, and the item lines with pack size and CTN / quantity.
 Filled fields are highlighted in yellow. Values that differ from what is already in the form are listed, not overwritten. Nothing is saved until you click Save.
+
+## Egypt operations (rebuilt)
+
+The Egypt section opens with an operations dashboard:
+- **KPI tiles**: open shipments, on the road, at the borders, overdue, delivered, cartons, supplier and freight payments due.
+- **Shipment pipeline**: every open shipment as a card in its current step (Planned → To KSA → At KSA → To Ghuwaifat → At Ghuwaifat → Out for delivery → Delivered). The green button moves it to the next step and records the date; dispatch asks for the truck plate and container no. (container numbers are checked with the ISO check digit).
+- **Payments due** with *Mark paid*, **transit times** per leg (from the step dates), **supplier scorecard**, **monthly trend** and **Needs fixing** (data checks with a *Fix* button that opens the right part of the form).
+- **🖨 Egypt report**: printable / PDF report (A4 landscape) for a month or all months.
+
+The entry form has five parts (Order & invoice, Products with batch per product, Truck & container, Journey & dates, Payments & notes). Picking a status fills its date and typing a date sets the status. Live checks are shown before saving.
+New date fields on Egypt records: invDate, dPo, dSupPay, dFrPay, dKsaArr, dKsa, dGhuArr, dGhu, dPurchase. The existing status fields are kept, so older views and reports keep working.

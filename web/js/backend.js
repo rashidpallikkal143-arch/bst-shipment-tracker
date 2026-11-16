@@ -21,7 +21,9 @@
   var RX_KEYS = ['line', 'vessel', 'imo', 'mmsi', 'voyage', 'bl', 'tlink', 'refId', 'piDate', 'poStatus', 'poNs', 'piNs', 'port1', 'eta1', 'ata1', 'fs1', 'fe1', 'fu1', 'fu2',
     'invoice', 'po', 'poId', 'pi', 'country', 'ref', 'contQty', 'contSize', 'stage', 'etd', 'atd', 'eta', 'ata', 'freeStart', 'freeEnd', 'supplier', 'shipper', 'whDate', 'payment', 'remarks', 'month', 'port'];
   var EG_KEYS = ['sr', 'sched', 'actual', 'items', 'batch', 'supplier', 'inv', 'brand', 'origin', 'ctn', 'pallets', 'container', 'vehicle', 'driver', 'mobile',
-    'po', 'supPay', 'invAmt', 'frPay', 'frAmt', 'loading', 'ksa', 'ghu', 'wh', 'delivered', 'purchase', 'updated', 'remarks', 'poNo', 'poId'];
+    'po', 'supPay', 'invAmt', 'frPay', 'frAmt', 'loading', 'ksa', 'ghu', 'wh', 'delivered', 'purchase', 'updated', 'remarks', 'poNo', 'poId',
+    // the date each step happened (stamped by the Egypt pipeline; editable)
+    'invDate', 'dPo', 'dSupPay', 'dFrPay', 'dKsaArr', 'dKsa', 'dGhuArr', 'dGhu', 'dPurchase'];
   var EG_NUM = { sr: 1, ctn: 1, pallets: 1, invAmt: 1, frAmt: 1 };
   var INSP_KEYS = ['id', 'ref', 'invoice', 'level', 'product', 'status', 'authority', 'date', 'result', 'clearance', 'clearDate', 'action', 'owner', 'due', 'remarks', 'updated', 'by'];
   var MX_KEYS = ['id', 'month', 'container', 'inv', 'invDate', 'desc', 'amount', 'paid', 'status', 'payDate', 'mode', 'ref', 'due', 'remarks', 'updated'];
