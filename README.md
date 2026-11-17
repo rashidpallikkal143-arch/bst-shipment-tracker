@@ -124,3 +124,10 @@ The Egypt section opens with an operations dashboard:
 
 The entry form has five parts (Order & invoice, Products with batch per product, Truck & container, Journey & dates, Payments & notes). Picking a status fills its date and typing a date sets the status. Live checks are shown before saving.
 New date fields on Egypt records: invDate, dPo, dSupPay, dFrPay, dKsaArr, dKsa, dGhuArr, dGhu, dPurchase. The existing status fields are kept, so older views and reports keep working.
+
+## Track your shipment
+
+**🔎 Track shipment** (red button at the top of the Egypt and Global sections) opens a courier-style tracking page.
+Search by any detail: container no., truck plate, invoice, B/L, PO / PI, vessel, supplier, product, batch or SR no. Choose All, Egypt or Global.
+One match shows the delivery status table and the movement timeline (newest first, expected steps dimmed); several matches show a list to pick from.
+**Copy tracking link** gives a link like `https://bst-shipment-tracker.web.app/#track=TEMU0905735` that opens the page for a signed-in user.

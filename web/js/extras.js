@@ -24,6 +24,7 @@
   var css = document.createElement('style');
   css.textContent =
     '.xbar{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 12px}.xbar button{border-radius:10px;padding:8px 14px;font-weight:600;background:#fff;border:1px solid var(--bd);cursor:pointer}' +
+    '.xbar button.xtrk{background:#df1f26;border-color:#df1f26;color:#fff}.xbar button.xtrk:hover{background:#b8141a;color:#fff}' +
     '.xbar button:hover{border-color:var(--ac);color:var(--acd)}.xbar .xn{display:inline-block;min-width:20px;padding:0 6px;margin-left:4px;border-radius:999px;background:#e8590c;color:#fff;font-size:12px}' +
     '#ovpo,#ovxl{z-index:72}#ovpf{z-index:76}#ovpo .box,#ovxl .box{max-width:1250px}#ovpf .box{max-width:980px}' +
     '.xh{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}.xh h2{margin:0;font-size:18px}.xh span{display:flex;gap:6px;flex-wrap:wrap}' +
@@ -70,7 +71,7 @@
   // section toolbars
   function bars() {
     ['eg', 'rx'].forEach(function (sc) { var sec = $(sc); if (!sec || sec.querySelector('.xbar')) return; var ms = sec.querySelector('.msel'); if (!ms) return;
-      ms.insertAdjacentHTML('afterend', '<div class="xbar noprint" data-sc="' + sc + '"><button type="button" data-xpo="' + sc + '">📋 Purchase orders / schedules<b class="xn" id="xn-' + sc + '" style="display:none"></b></button>' +
+      ms.insertAdjacentHTML('afterend', '<div class="xbar noprint" data-sc="' + sc + '"><button type="button" class="xtrk" data-xtrk>🔎 Track shipment</button><button type="button" data-xpo="' + sc + '">📋 Purchase orders / schedules<b class="xn" id="xn-' + sc + '" style="display:none"></b></button>' +
         '<button type="button" data-xxl="' + sc + '">📊 Excel import / export</button><button type="button" data-xrp="' + sc + '">📄 Summary report (PDF / print)</button></div>'); });
   }
   bars();
