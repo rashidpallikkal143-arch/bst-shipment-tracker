@@ -42,6 +42,9 @@
   var OWN = /al[\s-]?saih|baniyas|\bbst\b/i;
   function supName(s) { s = String(s || '').trim(); if (!s) return ''; return s === s.toUpperCase() ? s.toLowerCase().replace(/(^|[\s(\/&-])([a-z])/g, function (a, b, c) { return b + c.toUpperCase(); }) : s; }
 
+  // shipments entered before the rebuild went live are start-up entries: no checks, nothing required for them
+  var CHECKS_FROM = '2026-11-17T09:30:00Z';
+  function isNew(r) { return !r || !r.row || (!!r.created && r.created >= CHECKS_FROM); }
   // ------------------------------------------------------------------ required to book the purchase (nothing is compulsory before that)
   function bookMissing(r) { var m = [], its = itemsOf(r), ctn = num(r.ctn) || its.reduce(function (a, i) { return a + num(i.c); }, 0);
     if (!String(r.supplier || '').trim() || OWN.test(r.supplier)) m.push(['Supplier (Egypt)', 'order']); if (!r.inv) m.push(['Invoice no.', 'order']); if (!num(r.invAmt)) m.push(['Invoice amount', 'order']);
@@ -49,6 +52,7 @@
     if (!num(r.frAmt)) m.push(['Freight amount', 'pay']); if (!r.actual) m.push(['Dispatch date', 'trip']); if (!r.delivered) m.push(['Delivery date', 'trip']); return m; }
   // ------------------------------------------------------------------ checks ("needs fixing")
   function checks(r) {
+    if (!isNew(r)) return [];
     var out = [], st = stg(r), add = function (m, sec, lvl) { out.push({ m: m, sec: sec, lvl: lvl || 'w' }); };
     if (r.supplier && OWN.test(r.supplier)) add('Supplier is your own company (' + r.supplier + '), enter the Egyptian supplier', 'order');
     if (r.inv && /^\d{4}-\d\d-\d\d$/.test(r.inv)) add('Invoice no. looks like a date (' + r.inv + ')', 'order');
@@ -115,7 +119,7 @@
     h += '<div class="pn' + cl('transit') + '" data-egp="transit"><h3 class="egt" data-egtg="transit">' + ar('transit') + 'Transit times <span class="mu">average days · ' + esc(scopeLabel()) + '</span></h3>' + transitHtml(sc) + '</div></div>';
     // needs fixing + suppliers
     var fixL = fixes.filter(function (f) { return inScope(f.r) || stg(f.r) <= 6; });
-    h += '<div class="grid2"><div class="pn' + cl('fix') + '" id="eg-fix" data-egp="fix"><h3 class="egt" data-egtg="fix">' + ar('fix') + 'Needs fixing <span class="mu">' + fixL.length + ' issue(s) · fix them so reports are right</span></h3>' +
+    h += '<div class="grid2"><div class="pn' + cl('fix') + '" id="eg-fix" data-egp="fix"><h3 class="egt" data-egtg="fix">' + ar('fix') + 'Needs fixing <span class="mu">' + fixL.length + ' issue(s) · shipments entered from 17 Nov 2026</span></h3>' +
       (fixL.length ? '<div class="egfx">' + fixL.map(function (f) { return '<div class="egfi ' + f.c.lvl + '"><span><b>' + esc(ref(f.r)) + '</b> <span class="mu">' + esc(f.r.month) + ' · #' + esc(f.r.sr) + '</span><br>' + esc(f.c.m) + '</span>' +
         (can('egEdit') ? '<button type="button" class="sm" data-egx="fix" data-sec="' + f.c.sec + '" data-i="' + f.r._i + '">Fix</button>' : '') + '</div>'; }).join('') + '</div>' : '<div class="mu">✓ No problems found.</div>') + '</div>';
     h += '<div class="pn' + cl('sup') + '" data-egp="sup"><h3 class="egt" data-egtg="sup">' + ar('sup') + 'Suppliers <span class="mu">' + esc(scopeLabel()) + '</span></h3>' + supplierHtml(sc) + '</div></div>';
@@ -166,7 +170,7 @@
       var inv = m2.querySelector('#egn-inv').value.trim(); if (inv && inv !== (r.inv || '')) v.inv = inv;
       if (s === 0) { var veh = m2.querySelector('#egn-veh').value.trim(), ct = m2.querySelector('#egn-cont').value.trim().toUpperCase().replace(/\s+/g, '');
         if (veh) v.vehicle = veh; if (ct) v.container = ct; v.driver = m2.querySelector('#egn-drv').value.trim(); v.mobile = m2.querySelector('#egn-mob').value.trim(); if (!r.po) v.po = 'Placed'; }
-      if (to >= 6) { var miss = bookMissing(Object.assign({}, r, v)); if (miss.length) throw new Error('To book the purchase, first enter: ' + miss.map(function (x) { return x[0]; }).join(', ') + '. Use ✎ Edit on the card.'); }
+      if (to >= 6 && isNew(r)) { var miss = bookMissing(Object.assign({}, r, v)); if (miss.length) throw new Error('To book the purchase, first enter: ' + miss.map(function (x) { return x[0]; }).join(', ') + '. Use ✎ Edit on the card.'); }
       return save(r, v); });
     var tr = m.querySelector('#egn-tr'); tr.style.display = s === 0 ? '' : 'none';
     var iw = function () { m.querySelector('#egn-invw').style.display = !r.inv ? '' : 'none'; }; m.querySelector('#egn-to').addEventListener('change', iw); iw();
@@ -217,7 +221,7 @@
     $('eai').onclick = function () { egAddItem(); };
     var Q = function (k) { return fm.querySelector('[data-e="' + k + '"]'); };
     var ci = function () {};
-    var live = function () { var v = collect(true), l = checks(Object.assign({ position: posOf(v) }, v)); $('egf-chk').innerHTML = l.length ? '<b>Checks</b>' + l.map(function (c) { return '<div class="' + c.lvl + '">' + (c.lvl === 'e' ? '✖ ' : '⚠ ') + esc(c.m) + '</div>'; }).join('') : '<b>✓ Checks passed</b>'; };
+    var live = function () { if (!isNew(r)) { $('egf-chk').innerHTML = '<span class="mu">Past shipment (entered before 17 Nov 2026, 1:30 pm): no checks are applied.</span>'; return; } var v = collect(true), l = checks(Object.assign({ position: posOf(v) }, v)); $('egf-chk').innerHTML = l.length ? '<b>Checks</b>' + l.map(function (c) { return '<div class="' + c.lvl + '">' + (c.lvl === 'e' ? '✖ ' : '⚠ ') + esc(c.m) + '</div>'; }).join('') : '<b>✓ Checks passed</b>'; };
     fm.oninput = function (e) { var t = e.target; if (t.dataset.e === 'container') ci(); clearTimeout(fm._t); fm._t = setTimeout(live, 250); };
     fm.onchange = function (e) { var t = e.target, k = t.dataset.e; if (!k) return;
       if (IMPLY[k] && t.value) { var s2 = Q(IMPLY[k][0]), want = IMPLY[k][1], rk = RANK[IMPLY[k][0]]; if (s2 && (!rk || rk.indexOf(s2.value) < rk.indexOf(want))) { if (![].some.call(s2.options, function (x) { return x.value === want; })) s2.insertAdjacentHTML('beforeend', '<option>' + want + '</option>'); s2.value = want; } }
@@ -232,7 +236,7 @@
         if (!n) return; lines.push(n + (p ? ' (' + p + ')' : '') + (c ? ': ' + Number(c).toLocaleString('en-US') + ' ctn' : '') + (l ? ' / ' + l + ' plt' : '') + (b ? ' [Batch: ' + b + ']' : '')); if (b && bs.indexOf(b) < 0) bs.push(b); });
       v.items = lines.join('\n'); v.batch = bs.join(', '); return v; }
     $('esv').onclick = function () { var v = collect(), m = $('ef-m').value;
-      if (v.purchase === 'Booked') { var miss = bookMissing(v); if (miss.length) { alert('To mark the purchase as booked, first enter:\n• ' + miss.map(function (x) { return x[0]; }).join('\n• ')); $('egs-' + miss[0][1]).scrollIntoView(); return; } }
+      if (v.purchase === 'Booked' && isNew(r)) { var miss = bookMissing(v); if (miss.length) { alert('To mark the purchase as booked, first enter:\n• ' + miss.map(function (x) { return x[0]; }).join('\n• ')); $('egs-' + miss[0][1]).scrollIntoView(); return; } }
       if (!v.items && !v.container && !v.supplier) { alert('Enter at least one product, the container number or the supplier.'); return; }
       if (v.actual && v.delivered && v.delivered < v.actual) { alert('The delivery date is before the dispatch date.'); $('egs-trip').scrollIntoView(); return; }
       if (!r && !v.sr) delete v.sr;

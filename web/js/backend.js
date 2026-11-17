@@ -208,7 +208,7 @@
     docs.forEach(function (d) { if (d.month && months.indexOf(d.month) < 0) months.push(d.month); });
     months = months.filter(function (m) { return /^[A-Z]{3} \d{4}$/.test(m); }).sort(function (a, b) { return monKey(a) - monKey(b); });
     var rows = docs.map(function (d) { var o = {}; EG_KEYS.forEach(function (k) { o[k] = EG_NUM[k] ? (d[k] === '' || d[k] === undefined || isNaN(Number(d[k])) ? '' : Number(d[k])) : s_(d[k]); });
-      o.month = d.month; o.etaManual = s_(d.etaManual); o = egCompute(o); o.row = d._id; return o; })
+      o.month = d.month; o.etaManual = s_(d.etaManual); o = egCompute(o); o.row = d._id; o.created = s_(d.created); return o; })
       .filter(function (o) { return o.items || o.container || o.supplier || o.sched; })
       .sort(function (a, b) { return monKey(a.month) - monKey(b.month) || (Number(a.sr) || 0) - (Number(b.sr) || 0); });
     var cols = {}; months.forEach(function (m) { cols[m] = EG_KEYS.concat(['eta', 'position', 'milestones', 'alert']); });
