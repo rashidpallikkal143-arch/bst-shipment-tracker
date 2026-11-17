@@ -32,7 +32,9 @@
     if (reached(4, r.dKsa)) add(r.dKsa, 'Cleared KSA border', 'KSA  -to-  Ghuwaifat border', '🚚');
     if (reached(5, r.dGhuArr)) add(r.dGhuArr, 'Arrived at Ghuwaifat border', 'Ghuwaifat, UAE', '🛃');
     if (reached(6, r.dGhu)) add(r.dGhu, 'Cleared UAE customs, out for delivery', 'Ghuwaifat  -to-  warehouse', '🚚');
-    if (reached(7, r.delivered) || dl) add(r.delivered, 'Delivered to warehouse', 'BST warehouse, UAE', '✅');
+    if (reached(7, r.delivered) || dl) { add(r.delivered, 'Delivered to warehouse', 'BST warehouse, UAE', '✅');
+      var tx = [r.temp === '' || r.temp == null ? '' : (Number(r.temp) > 0 ? '+' : '') + r.temp + ' °C', r.reefer, r.tempNote].filter(Boolean).join(' · ');
+      if (tx) { ev[ev.length - 1].x = '🌡 Temperature: ' + tx; ev[ev.length - 1].bad = !!r.reefer && r.reefer !== 'Reefer OK' && r.reefer !== 'Not a reefer (dry cargo)'; } }
     if (reached(8, r.dPurchase)) add(r.dPurchase, 'Purchase booked in the system', 'BST', '🧾');
     if (!dl && r.eta) add(r.eta, 'Expected delivery (ETA)', 'BST warehouse, UAE', '⏳', false);
     return { sc: 'eg', id: r.row, raw: r, ref: r.container || r.vehicle || ('#' + r.sr), sub: 'Egypt · ' + r.month + ' · #' + r.sr,
@@ -40,7 +42,7 @@
       rows: [['Current Status', st || 'Pre-Shipment'], ['Section', 'Egypt (road)'], ['Origin', origin], ['Destination', 'BST warehouse, UAE (via KSA & Ghuwaifat)'],
         ['Consignment', [ctn ? nf(ctn) + ' CTN' : '', Number(r.pallets) ? nf(r.pallets) + ' pallets' : '', its.length ? its.length + ' product' + (its.length > 1 ? 's' : '') : ''].filter(Boolean).join(' · ')],
         ['Supplier', r.supplier], ['Invoice no.', r.inv], ['Container no.', r.container], ['Truck plate no.', r.vehicle], ['Driver', [r.driver, r.mobile].filter(Boolean).join(' · ')],
-        ['PO / schedule', r.poNo], ['Dispatched', dlong(r.actual)], [dl ? 'Delivered' : 'ETA', dlong(dl ? r.delivered : r.eta)]],
+        ['PO / schedule', r.poNo], ['Temperature', [r.temp === '' || r.temp == null ? '' : r.temp + ' °C', r.reefer, r.tempNote].filter(Boolean).join(' · ')], ['Dispatched', dlong(r.actual)], [dl ? 'Delivered' : 'ETA', dlong(dl ? r.delivered : r.eta)]],
       items: its.map(function (i) { return [i.n + (i.p ? ' (' + i.p + ')' : ''), i.c ? nf(i.c) + ' CTN' : '', i.b ? 'Batch ' + i.b : '']; }),
       ev: ev, hay: [r.sr, 'sr' + r.sr, r.month, r.inv, r.container, r.vehicle, r.driver, r.mobile, r.supplier, r.brand, r.items, r.batch, r.poNo, r.remarks, r.origin].join(' ') }; }
   function fromRx(s) {
@@ -115,7 +117,7 @@
       '<div class="tk-act">' + (canDet(x) ? '<button type="button" data-tk="det">Open full details</button>' : '') + '<button type="button" data-tk="copy">🔗 Copy tracking link</button>' +
       (x.sc === 'rx' && x.conts && typeof dpwUrl === 'function' ? x.conts.filter(function (c) { return /^[A-Z]{4}\d{7}$/.test(c.no) && /jebel/i.test(x.raw.port || ''); }).map(function (c) { return '<a class="tk-a" target="_blank" rel="noopener" href="' + esc(dpwUrl(c.no)) + '">⚓ ' + esc(c.no) + ' at DP World</a>'; }).join('') : '') + '</div></div>' +
       '<div class="tk-r"><h2>Status of ' + esc(x.sc === 'eg' ? (x.raw.container ? 'Container' : x.raw.vehicle ? 'Truck' : 'Shipment') : 'Shipment') + ' No. ' + esc(x.ref) + '</h2><div class="mu">' + esc(x.sub) + '</div>' +
-      (ev.length ? '<div class="tk-tl">' + ev.map(function (e) { return '<div class="tk-e' + (e.done ? '' : ' exp') + (e === cur ? ' now' : '') + '"><div class="tk-d">' + (e.d ? esc(dlong(e.d)) : '<span class="mu">date not recorded</span>') + (e.done ? '' : '<br><small>expected</small>') + '</div><div class="tk-i">' + e.i + '</div><div class="tk-w"><b>' + esc(e.t) + '</b><br>' + esc(e.w || '') + '</div></div>'; }).join('') + '</div>'
+      (ev.length ? '<div class="tk-tl">' + ev.map(function (e) { return '<div class="tk-e' + (e.done ? '' : ' exp') + (e === cur ? ' now' : '') + '"><div class="tk-d">' + (e.d ? esc(dlong(e.d)) : '<span class="mu">date not recorded</span>') + (e.done ? '' : '<br><small>expected</small>') + '</div><div class="tk-i">' + e.i + '</div><div class="tk-w"><b>' + esc(e.t) + '</b><br>' + esc(e.w || '') + (e.x ? '<div class="tk-temp' + (e.bad ? ' bad' : '') + '">' + esc(e.x) + '</div>' : '') + '</div></div>'; }).join('') + '</div>'
         : '<div class="tk-none">No movement recorded yet.</div>') + '</div></div>';
     $('tk-out').innerHTML = h; }
   function canDet(x) { return x.sc === 'eg' ? !!(window.E && E.rows && typeof egDetail === 'function') : !!(window.D && D.shipments && D.shipments.length && typeof rxDetail === 'function'); }
@@ -138,7 +140,7 @@
     '.tk-r h2{margin:0;font-weight:600;font-size:22px;color:var(--tx)}.tk-tl{position:relative;margin-top:18px}.tk-tl:before{content:"";position:absolute;left:calc(200px + 18px);top:0;bottom:0;width:3px;background:#d7e9df}',
     '.tk-e{display:grid;grid-template-columns:200px 40px 1fr;gap:16px;align-items:center;padding:12px 0;position:relative}.tk-d{text-align:right;font-size:15px;color:var(--tx)}.tk-i{width:40px;height:40px;border-radius:50%;background:#04512c;color:#fff;display:flex;align-items:center;justify-content:center;font-size:18px;position:relative;z-index:1}',
     '.tk-e.now .tk-i{background:var(--ac);box-shadow:0 0 0 5px #d3f2e0}.tk-e.exp{opacity:.6}.tk-e.exp .tk-i{background:#fff;border:2px dashed #9aa3af}.tk-w{font-size:15px;color:var(--tx)}.tk-w b{font-weight:600}',
-    '.tk-act{display:flex;gap:8px;flex-wrap:wrap}.tk-act button,.tk-a{border:1px solid var(--bd);background:#fff;border-radius:6px;padding:7px 12px;cursor:pointer;font-size:13px;color:#333;text-decoration:none}.tk-back{border:0;background:none;color:var(--acd);cursor:pointer;padding:0 0 12px;font-size:14px}',
+    '.tk-temp{display:inline-block;margin-top:6px;padding:4px 10px;border-radius:999px;background:#e9f7ef;color:var(--acd);font-size:13px;font-weight:600}.tk-temp.bad{background:#fde8e8;color:var(--er)}.tk-act{display:flex;gap:8px;flex-wrap:wrap}.tk-act button,.tk-a{border:1px solid var(--bd);background:#fff;border-radius:6px;padding:7px 12px;cursor:pointer;font-size:13px;color:#333;text-decoration:none}.tk-back{border:0;background:none;color:var(--acd);cursor:pointer;padding:0 0 12px;font-size:14px}',
     '.tk-list{display:grid;gap:8px;margin-bottom:30px}.tk-li{display:grid;grid-template-columns:70px 1fr auto;gap:12px;align-items:center;text-align:left;background:#fff;border:1px solid var(--bd);border-radius:10px;padding:10px 12px;cursor:pointer;font-size:14px}.tk-li:hover{border-color:var(--ac)}',
     '.tk-tag{font-size:11px;font-weight:700;border-radius:999px;padding:3px 8px;text-align:center;color:#fff}.tk-tag.eg{background:#00a651}.tk-tag.rx{background:#1f6feb}.tk-st{text-align:right;font-size:13px}.tk-st.ok{color:var(--acd)}.tk-st.late{color:#c62828}.tk-st.due,.tk-cur.due{color:#b36b00}',
     '@media(max-width:820px){.tk-res{grid-template-columns:1fr}.tk-l{border-right:0;padding-right:0;border-bottom:1px solid #1cbfa0;padding-bottom:12px;margin-bottom:12px}.tk-r{padding-left:0}.tk-e{grid-template-columns:96px 36px 1fr;gap:10px}.tk-tl:before{left:calc(96px + 10px + 16px)}.tk-i{width:36px;height:36px;font-size:16px}.tk-d,.tk-w{font-size:13px}.tk-hd h1{font-size:28px}.tk-s{margin-top:24px}.tk-r h2{font-size:19px}.tk-li{grid-template-columns:60px 1fr}.tk-st{grid-column:2;text-align:left}}'

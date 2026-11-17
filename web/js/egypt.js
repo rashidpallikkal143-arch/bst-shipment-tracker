@@ -42,6 +42,12 @@
   var OWN = /al[\s-]?saih|baniyas|\bbst\b/i;
   function supName(s) { s = String(s || '').trim(); if (!s) return ''; return s === s.toUpperCase() ? s.toLowerCase().replace(/(^|[\s(\/&-])([a-z])/g, function (a, b, c) { return b + c.toUpperCase(); }) : s; }
 
+  // reefer condition recorded at purchase booking (with the temperature reading)
+  var REEFER = ['Reefer OK', 'Reefer Off', 'Reefer not working', 'Temperature confusion / unclear', 'Other reefer issue', 'Not a reefer (dry cargo)'];
+  function reeferBad(r) { return !!r.reefer && r.reefer !== 'Reefer OK' && r.reefer !== 'Not a reefer (dry cargo)'; }
+  function tempTxt(r) { return r.temp === '' || r.temp == null ? '' : (Number(r.temp) > 0 ? '+' : '') + r.temp + ' °C'; }
+  function reeferOpts(v) { return '<option value=""></option>' + REEFER.map(function (x) { return '<option' + (x === v ? ' selected' : '') + '>' + esc(x) + '</option>'; }).join(''); }
+  function reeferNeed(reefer, temp) { if (!reefer) return 'Choose the reefer condition.'; if (reefer !== 'Not a reefer (dry cargo)' && (temp === '' || temp == null || isNaN(Number(temp)))) return 'Enter the temperature reading (°C).'; return ''; }
   // shipments entered before the rebuild went live are start-up entries: no checks, nothing required for them
   var CHECKS_FROM = '2026-11-17T09:30:00Z';
   function isNew(r) { return !r || !r.row || (!!r.created && r.created >= CHECKS_FROM); }
@@ -123,6 +129,7 @@
       (fixL.length ? '<div class="egfx">' + fixL.map(function (f) { return '<div class="egfi ' + f.c.lvl + '"><span><b>' + esc(ref(f.r)) + '</b> <span class="mu">' + esc(f.r.month) + ' · #' + esc(f.r.sr) + '</span><br>' + esc(f.c.m) + '</span>' +
         (can('egEdit') ? '<button type="button" class="sm" data-egx="fix" data-sec="' + f.c.sec + '" data-i="' + f.r._i + '">Fix</button>' : '') + '</div>'; }).join('') + '</div>' : '<div class="mu">✓ No problems found.</div>') + '</div>';
     h += '<div class="pn' + cl('sup') + '" data-egp="sup"><h3 class="egt" data-egtg="sup">' + ar('sup') + 'Suppliers <span class="mu">' + esc(scopeLabel()) + '</span></h3>' + supplierHtml(sc) + '</div></div>';
+    h += '<div class="pn' + cl('reef') + '" id="eg-reef" data-egp="reef"><h3 class="egt" data-egtg="reef">' + ar('reef') + 'Reefer & temperature at booking <span class="mu">' + esc(scopeLabel()) + '</span></h3>' + reeferHtml(sc, true) + '</div>';
     h += '<div class="pn' + cl('trend') + '" data-egp="trend"><h3 class="egt" data-egtg="trend">' + ar('trend') + 'Monthly trend</h3>' + trendHtml() + '</div>';
     host.innerHTML = h; }
   function transitHtml(l) {
@@ -133,12 +140,24 @@
     return '<div class="tw"><table class="egtb"><thead><tr><th>Leg</th><th class="n">Avg days</th><th class="n">Range</th><th class="n">Trips</th></tr></thead><tbody>' + rows + '</tbody></table></div>' +
       '<div class="mu" style="margin-top:6px">Border times fill in as you move shipments step by step; each step records its date.</div>'; }
   function supplierHtml(l) {
-    var m = {}, o = []; l.forEach(function (r) { var k = supName(r.supplier) || '(supplier not entered)'; if (!m[k]) { m[k] = { n: 0, ctn: 0, del: 0, d2d: [], ot: 0, amt: 0 }; o.push(k); } var x = m[k]; x.n++; x.ctn += ctnOf(r); x.amt += num(r.invAmt);
+    var m = {}, o = []; l.forEach(function (r) { var k = supName(r.supplier) || '(supplier not entered)'; if (!m[k]) { m[k] = { n: 0, ctn: 0, del: 0, d2d: [], ot: 0, amt: 0, rf: 0, rc: 0 }; o.push(k); } var x = m[k]; x.n++; x.ctn += ctnOf(r); x.amt += num(r.invAmt); if (r.reefer && r.reefer !== 'Not a reefer (dry cargo)') { x.rc++; if (reeferBad(r)) x.rf++; }
       if (stg(r) >= 6) { x.del++; var t = dd(r.actual, r.delivered); if (t != null && t >= 0) x.d2d.push(t); if (r.eta && r.delivered && r.delivered <= r.eta) x.ot++; } });
     if (!o.length) return '<div class="mu">No shipments.</div>';
     o.sort(function (a, b) { return m[b].ctn - m[a].ctn; });
-    return '<div class="tw"><table class="egtb"><thead><tr><th>Supplier</th><th class="n">Shipments</th><th class="n">CTN</th><th class="n">Invoice $</th><th class="n">Avg days</th><th class="n">On time</th></tr></thead><tbody>' + o.map(function (k) { var x = m[k];
-      return '<tr><td>' + esc(k) + '</td><td class="n">' + x.n + '</td><td class="n">' + nf(x.ctn) + '</td><td class="n">' + (x.amt ? nf(x.amt) : '-') + '</td><td class="n">' + (x.d2d.length ? (x.d2d.reduce(function (a, b) { return a + b; }, 0) / x.d2d.length).toFixed(1) : '-') + '</td><td class="n">' + (x.del ? Math.round(x.ot / x.del * 100) + '%' : '-') + '</td></tr>'; }).join('') + '</tbody></table></div>'; }
+    return '<div class="tw"><table class="egtb"><thead><tr><th>Supplier</th><th class="n">Shipments</th><th class="n">CTN</th><th class="n">Invoice $</th><th class="n">Avg days</th><th class="n">On time</th><th class="n">Reefer issues</th></tr></thead><tbody>' + o.map(function (k) { var x = m[k];
+      return '<tr><td>' + esc(k) + '</td><td class="n">' + x.n + '</td><td class="n">' + nf(x.ctn) + '</td><td class="n">' + (x.amt ? nf(x.amt) : '-') + '</td><td class="n">' + (x.d2d.length ? (x.d2d.reduce(function (a, b) { return a + b; }, 0) / x.d2d.length).toFixed(1) : '-') + '</td><td class="n">' + (x.del ? Math.round(x.ot / x.del * 100) + '%' : '-') + '</td><td class="n' + (x.rf ? ' late' : '') + '">' + (x.rc ? x.rf + ' / ' + x.rc : '-') + '</td></tr>'; }).join('') + '</tbody></table></div>'; }
+  function reeferHtml(l, dash) {
+    var chk = l.filter(function (r) { return r.reefer || (r.temp !== '' && r.temp != null); }), rf = chk.filter(function (r) { return r.reefer !== 'Not a reefer (dry cargo)'; });
+    var noRec = l.filter(function (r) { return stg(r) >= 7 && !r.reefer; }).length, noTxt = noRec ? noRec + ' booked shipment(s) have no reading (booked before this was added).' : '';
+    if (!chk.length) return '<div class="mu">No temperature readings yet. They are recorded when a shipment is marked <b>Purchase booked</b>. ' + noTxt + '</div>';
+    var cnt = {}; chk.forEach(function (r) { var k = r.reefer || 'Condition not chosen'; cnt[k] = (cnt[k] || 0) + 1; });
+    var tv = rf.filter(function (r) { return r.temp !== '' && r.temp != null && !isNaN(Number(r.temp)); }).map(function (r) { return Number(r.temp); });
+    var sumH = '<div class="egrf-s">' + Object.keys(cnt).sort(function (a, b) { return REEFER.indexOf(a) - REEFER.indexOf(b); }).map(function (k) { var bad = k !== 'Reefer OK' && k !== 'Not a reefer (dry cargo)'; return '<span class="chip ' + (bad ? 'cr' : k === 'Reefer OK' ? 'cg' : '') + '">' + esc(k) + ': <b>' + cnt[k] + '</b></span>'; }).join(' ') +
+      (tv.length ? ' <span class="chip">Reefer temperature: avg <b>' + (tv.reduce(function (a, b) { return a + b; }, 0) / tv.length).toFixed(1) + ' °C</b> · coldest ' + Math.min.apply(null, tv) + ' · warmest ' + Math.max.apply(null, tv) + '</span>' : '') + '</div>';
+    var rows = chk.slice().sort(function (a, b) { return Number(reeferBad(b)) - Number(reeferBad(a)) || String(b.dPurchase || '').localeCompare(String(a.dPurchase || '')); }), show = dash ? rows.slice(0, 15) : rows;
+    return sumH + '<div class="tw"><table class="' + (dash ? 'egtb' : 'egr-t') + '"><thead><tr><th>Shipment</th><th>Supplier</th><th>Booked</th><th class="n">Temp</th><th>Reefer condition</th><th>Note</th></tr></thead><tbody>' +
+      show.map(function (r) { return '<tr' + (reeferBad(r) ? ' class="egrf-bad"' : '') + '><td>' + (dash ? '<a data-ei="' + r._i + '"><b>' + esc(ref(r)) + '</b></a>' : '<b>' + esc(ref(r)) + '</b>') + '<div class="mu">' + esc(r.month) + ' · #' + esc(r.sr) + '</div></td><td>' + esc(supName(r.supplier) || '-') + '</td><td>' + esc(dshow(r.dPurchase) || '-') + '</td><td class="n">' + esc(tempTxt(r) || '-') + '</td><td>' + esc(r.reefer || '-') + '</td><td>' + esc(r.tempNote || '') + '</td></tr>'; }).join('') +
+      '</tbody></table></div>' + (dash && rows.length > show.length ? '<div class="mu">Showing 15 of ' + rows.length + '. The full list is in 🖨 Egypt report.</div>' : '') + (noTxt ? '<div class="mu" style="margin-top:6px">' + noTxt + '</div>' : ''); }
   function trendHtml() {
     var ms = E.months.map(function (m) { var l = E.rows.filter(function (r) { return r.month === m; }), c = 0; l.forEach(function (r) { c += ctnOf(r); }); return { m: m, n: l.length, c: c, d: l.filter(function (r) { return stg(r) >= 6; }).length }; }).filter(function (x) { return x.n; });
     if (!ms.length) return '<div class="mu">No data.</div>';
@@ -161,7 +180,7 @@
     var opts = STEP.slice(s).map(function (x, k) { return '<option value="' + (s + k) + '"' + (k === 0 ? ' selected' : '') + '>' + esc(x.t) + '</option>'; }).join('');
     var body = '<div class="egm-now">Now: <b>' + esc(ST[s].t) + '</b></div><label>Move to<select id="egn-to">' + opts + '</select></label><label>Date<input type="date" id="egn-d" value="' + today() + '"></label>' +
       '<div id="egn-tr" class="egm-g"><label>Truck plate no.<input id="egn-veh" value="' + esc(r.vehicle || '') + '" placeholder="e.g. 1481"></label><label>Container no.<input id="egn-cont" value="' + esc(r.container || '') + '" placeholder="e.g. 8253"></label>' +
-      '<label>Driver<input id="egn-drv" value="' + esc(r.driver || '') + '"></label><label>Driver mobile<input id="egn-mob" value="' + esc(r.mobile || '') + '"></label></div><label id="egn-invw">Invoice no. <span class="mu">(optional until purchase booking)</span><input id="egn-inv" value="' + esc(r.inv || '') + '"></label><div class="mu">Skipped steps are marked done without a date; you can add dates later in Edit.</div>';
+      '<label>Driver<input id="egn-drv" value="' + esc(r.driver || '') + '"></label><label>Driver mobile<input id="egn-mob" value="' + esc(r.mobile || '') + '"></label></div><label id="egn-invw">Invoice no. <span class="mu">(optional until purchase booking)</span><input id="egn-inv" value="' + esc(r.inv || '') + '"></label><div id="egn-rf" class="egm-rf"><b>Reefer check at booking</b><div class="egm-g"><label>Temperature (°C)<input type="number" step="0.1" id="egn-temp" value="' + esc(r.temp) + '" placeholder="e.g. -18"></label><label>Reefer condition<select id="egn-reef">' + reeferOpts(r.reefer) + '</select></label></div><label>Temperature note<input id="egn-tn" value="' + esc(r.tempNote || '') + '" placeholder="e.g. reefer switched off on arrival, -9 °C at the door"></label></div><div class="mu">Skipped steps are marked done without a date; you can add dates later in Edit.</div>';
     var m = modal('Update ' + esc(ref(r)), body, 'Save step', function (m2) {
       var to = Number(m2.querySelector('#egn-to').value), d = m2.querySelector('#egn-d').value, v = {};
       if (!d) throw new Error('Enter the date.');
@@ -170,10 +189,11 @@
       var inv = m2.querySelector('#egn-inv').value.trim(); if (inv && inv !== (r.inv || '')) v.inv = inv;
       if (s === 0) { var veh = m2.querySelector('#egn-veh').value.trim(), ct = m2.querySelector('#egn-cont').value.trim().toUpperCase().replace(/\s+/g, '');
         if (veh) v.vehicle = veh; if (ct) v.container = ct; v.driver = m2.querySelector('#egn-drv').value.trim(); v.mobile = m2.querySelector('#egn-mob').value.trim(); if (!r.po) v.po = 'Placed'; }
+      if (to >= 6) { var tp = m2.querySelector('#egn-temp').value.trim(), rf = m2.querySelector('#egn-reef').value, need = reeferNeed(rf, tp); if (need) throw new Error(need); v.temp = tp; v.reefer = rf; v.tempNote = m2.querySelector('#egn-tn').value.trim(); }
       if (to >= 6 && isNew(r)) { var miss = bookMissing(Object.assign({}, r, v)); if (miss.length) throw new Error('To book the purchase, first enter: ' + miss.map(function (x) { return x[0]; }).join(', ') + '. Use ✎ Edit on the card.'); }
       return save(r, v); });
     var tr = m.querySelector('#egn-tr'); tr.style.display = s === 0 ? '' : 'none';
-    var iw = function () { m.querySelector('#egn-invw').style.display = !r.inv ? '' : 'none'; }; m.querySelector('#egn-to').addEventListener('change', iw); iw();
+    var iw = function () { var t = Number(m.querySelector('#egn-to').value); m.querySelector('#egn-invw').style.display = !r.inv ? '' : 'none'; m.querySelector('#egn-rf').style.display = t >= 6 ? '' : 'none'; }; m.querySelector('#egn-to').addEventListener('change', iw); iw();
     }
   function markPaid(r, kind) {
     var amtK = kind === 'sup' ? 'invAmt' : 'frAmt', body = '<label>Paid on<input type="date" id="egp-d" value="' + today() + '"></label><label>' + (kind === 'sup' ? 'Invoice amount to supplier ($)' : 'Freight amount ($)') + '<input type="number" min="0" step="any" id="egp-a" value="' + esc(r[amtK] || '') + '"></label>';
@@ -207,7 +227,8 @@
       inp('driver', 'Driver name') + inp('mobile', 'Driver mobile') + inp('frAmt', 'Freight amount ($)', 'number') + '</div></div>' +
       '<div class="egf-sec" id="egs-trip"><h3>Journey & dates <span class="mu">pick a status or type a date; the other fills itself</span></h3><div class="egj">' +
       STATUSROWS.map(function (x) { return '<div class="egj-r"><span class="egj-l">' + x[0] + '</span>' + sel(x[1]) + x[2].map(function (d) { return '<label class="egj-d">' + d[1] + '<input type="date" data-e="' + d[0] + '" value="' + esc(val(d[0])) + '"></label>'; }).join('') + '</div>'; }).join('') +
-      '</div><div class="mu" style="margin-top:6px">ETA in the UAE = dispatch date + ' + esc((window.BST && BST.settings && BST.settings.transitDays) || 8) + ' days.</div></div>' +
+      '</div><div class="egj-rf"><span class="egj-l">Reefer check at booking</span><label class="egj-d">Temperature (°C)<input type="number" step="0.1" data-e="temp" value="' + esc(val('temp')) + '" placeholder="e.g. -18"></label><label class="egj-d">Reefer condition<select data-e="reefer">' + reeferOpts(val('reefer')) + '</select></label><label class="egj-d egj-w">Temperature note<input data-e="tempNote" value="' + esc(val('tempNote')) + '"></label></div>' +
+      '<div class="mu" style="margin-top:6px">ETA in the UAE = dispatch date + ' + esc((window.BST && BST.settings && BST.settings.transitDays) || 8) + ' days.</div></div>' +
       '<div class="egf-sec" id="egs-pay"><h3>Payments & notes</h3><div class="egj">' + [['Supplier payment', 'supPay', 'dSupPay'], ['Freight payment (truck)', 'frPay', 'dFrPay']].map(function (x) { return '<div class="egj-r"><span class="egj-l">' + x[0] + '</span>' + sel(x[1]) + '<label class="egj-d">Paid on<input type="date" data-e="' + x[2] + '" value="' + esc(val(x[2])) + '"></label></div>'; }).join('') + '</div>' +
       '<label style="display:block;margin-top:10px">Remarks<textarea data-e="remarks" rows="3">' + esc(val('remarks')) + '</textarea></label></div>' +
       '<div class="egf-chk" id="egf-chk"></div>' +
@@ -236,6 +257,7 @@
         if (!n) return; lines.push(n + (p ? ' (' + p + ')' : '') + (c ? ': ' + Number(c).toLocaleString('en-US') + ' ctn' : '') + (l ? ' / ' + l + ' plt' : '') + (b ? ' [Batch: ' + b + ']' : '')); if (b && bs.indexOf(b) < 0) bs.push(b); });
       v.items = lines.join('\n'); v.batch = bs.join(', '); return v; }
     $('esv').onclick = function () { var v = collect(), m = $('ef-m').value;
+      if (v.purchase === 'Booked' && (!r || r.purchase !== 'Booked')) { var need = reeferNeed(v.reefer, v.temp); if (need) { alert('To mark the purchase as booked: ' + need); $('egs-trip').scrollIntoView(); return; } }
       if (v.purchase === 'Booked' && isNew(r)) { var miss = bookMissing(v); if (miss.length) { alert('To mark the purchase as booked, first enter:\n• ' + miss.map(function (x) { return x[0]; }).join('\n• ')); $('egs-' + miss[0][1]).scrollIntoView(); return; } }
       if (!v.items && !v.container && !v.supplier) { alert('Enter at least one product, the container number or the supplier.'); return; }
       if (v.actual && v.delivered && v.delivered < v.actual) { alert('The delivery date is before the dispatch date.'); $('egs-trip').scrollIntoView(); return; }
@@ -255,7 +277,7 @@
     var s = stg(r), pts = [['Loading planned', r.sched, 0], ['Dispatched from Egypt', r.actual, 1], ['Arrived KSA border', r.dKsaArr, 2], ['Cleared KSA border', r.dKsa, 3], ['Arrived Ghuwaifat', r.dGhuArr, 4], ['Cleared Ghuwaifat', r.dGhu, 5], ['Delivered to warehouse', r.delivered, 6], ['Purchase booked', r.dPurchase, 7]];
     return '<div class="egtl">' + pts.map(function (p, i) { var done = i === 0 ? s >= 1 || !!p[1] : s >= p[2], prev = i ? pts[i - 1][1] : null, gap = p[1] && prev ? dd(prev, p[1]) : null;
       return '<div class="egtl-i ' + (done ? 'd' : s === p[2] - 1 ? 'n' : '') + '"><i></i><span><b>' + esc(p[0]) + '</b><br><span class="mu">' + (p[1] ? esc(dlong(p[1])) + (gap != null && gap >= 0 ? ' · ' + gap + ' d' : '') : done ? 'done · no date' : '—') + '</span></span></div>'; }).join('') + '</div>' +
-      '<div class="ms" style="margin-top:8px"><span class="chip ' + (r.supPay === 'Completed' ? 'cg' : 'co') + '">Supplier payment: ' + esc(r.supPay || 'Not updated') + (r.dSupPay ? ' · ' + esc(dlong(r.dSupPay)) : '') + '</span> <span class="chip ' + (r.frPay === 'Completed' ? 'cg' : 'co') + '">Freight payment: ' + esc(r.frPay || 'Not updated') + (r.dFrPay ? ' · ' + esc(dlong(r.dFrPay)) : '') + '</span></div>'; }
+      '<div class="ms" style="margin-top:8px"><span class="chip ' + (r.supPay === 'Completed' ? 'cg' : 'co') + '">Supplier payment: ' + esc(r.supPay || 'Not updated') + (r.dSupPay ? ' · ' + esc(dlong(r.dSupPay)) : '') + '</span> <span class="chip ' + (r.frPay === 'Completed' ? 'cg' : 'co') + '">Freight payment: ' + esc(r.frPay || 'Not updated') + (r.dFrPay ? ' · ' + esc(dlong(r.dFrPay)) : '') + '</span>' + (r.reefer || tempTxt(r) ? ' <span class="chip ' + (reeferBad(r) ? 'cr' : 'cg') + '">🌡 ' + esc([tempTxt(r), r.reefer].filter(Boolean).join(' · ')) + (r.tempNote ? ' · ' + esc(r.tempNote) : '') + '</span>' : '') + '</div>'; }
 
   // ------------------------------------------------------------------ Egypt report (print / PDF)
   function report() {
@@ -284,6 +306,7 @@
         itemsOf(r).map(function (i) { return esc(i.n) + (i.b ? ' <small>(' + esc(i.b) + ')</small>' : ''); }).join('<br>') + '</td><td class="n">' + nf(ctnOf(r)) + '</td><td>' + esc(dshow(r.actual) || '-') + '</td><td>' + esc(dshow(r.dKsa) || (stg(r) >= 3 ? '✓' : '-')) + '</td><td>' + esc(dshow(r.dGhu) || (stg(r) >= 5 ? '✓' : '-')) + '</td><td>' + esc(dshow(r.delivered) || '-') + '</td><td class="n">' + (t != null && t >= 0 ? t : '') + '</td><td>' + esc(ST[stg(r)].s) + (isOver(r) ? ' · <b>' + esc(r.alert) + '</b>' : '') + '</td></tr>'; }).join('') +
       '<tr class="tot"><td colspan="6">Total ' + l.length + ' shipments</td><td class="n">' + nf(ctn) + '</td><td colspan="6"></td></tr></tbody></table>' +
       '<div class="egr-2"><div><h3>Transit times</h3>' + transitHtml(l) + '</div><div><h3>Suppliers</h3>' + supplierHtml(l) + '</div></div>' +
+      '<h3>Reefer & temperature at booking</h3>' + reeferHtml(l, false) +
       '<h3>Payments due</h3><table class="egr-t"><thead><tr><th>Shipment</th><th>Supplier</th><th>Supplier payment</th><th class="n">Invoice $</th><th>Freight payment</th><th class="n">Freight $</th></tr></thead><tbody>' +
       l.filter(function (r) { return r.supPay !== 'Completed' || (stg(r) >= 1 && r.frPay !== 'Completed'); }).map(function (r) { return '<tr><td>' + esc(ref(r)) + ' <small>' + esc(r.month) + '</small></td><td>' + esc(supName(r.supplier) || '-') + '</td><td>' + esc(r.supPay || 'Unpaid') + '</td><td class="n">' + (num(r.invAmt) ? nf(r.invAmt) : '-') + '</td><td>' + esc(r.frPay || 'Unpaid') + '</td><td class="n">' + (num(r.frAmt) ? nf(r.frAmt) : '-') + '</td></tr>'; }).join('') + '</tbody></table>'; }
 
@@ -293,6 +316,8 @@
     '#egdash{margin-bottom:12px}.egh{display:flex;justify-content:space-between;align-items:flex-end;gap:10px;flex-wrap:wrap;margin:4px 0 12px}.egh h2{margin:0;font-size:20px}.egh-b{display:flex;gap:8px;flex-wrap:wrap}.warnb{border-color:#f0c43c;background:#fff8e1}',
     '.egks{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:12px}.egk{background:#fff;border:1px solid var(--bd);border-left:4px solid #8a94a6;border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;gap:2px;cursor:pointer;min-width:0}.egk span{font-size:12px;color:var(--mu);font-weight:600}.egk b{font-size:24px;line-height:1.1}.egk em{font-style:normal;font-size:12px;color:var(--mu);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
     '.egk.b{border-left-color:var(--bl)}.egk.o{border-left-color:var(--wa)}.egk.r{border-left-color:var(--er)}.egk.r b{color:var(--er)}.egk.g{border-left-color:var(--ac)}.egk:hover{box-shadow:0 2px 10px rgba(0,0,0,.06)}',
+    '.egm-rf{margin-top:12px;padding:10px;border:1px solid #cfe9da;border-radius:10px;background:#f3faf6}.egm-rf>b{font-size:13px}.egj-rf{display:grid;grid-template-columns:minmax(150px,1.2fr) minmax(120px,1fr) minmax(150px,1fr) minmax(200px,1.6fr);gap:8px;align-items:end;padding:8px 6px;margin-top:4px;background:#f3faf6;border-radius:8px}' +
+    '.egrf-s{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}.egrf-bad td{background:#fff4f4}.chip.cr{background:#fde8e8;color:var(--er)}.egtb td.late{color:var(--er);font-weight:700}' +
     '[data-egtg]{cursor:pointer;user-select:none}.egar{display:inline-flex;width:20px;height:20px;align-items:center;justify-content:center;border-radius:6px;background:#eef6f1;color:var(--acd);font-size:12px;margin-right:6px;flex:none}[data-egtg]:hover .egar{background:var(--ac);color:#fff}' +
     '.grid2>.pn.egcl{align-self:start}.pn.egcl>:not(.egt){display:none!important}.pn.egcl .egt{margin-bottom:0}.egsub.egcl>:not(.egst){display:none!important}.egst{display:flex!important;align-items:center}' +
     '.egt{margin:0 0 10px;font-size:15px;display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}.egt .mu{font-weight:400;font-size:12px}.egst{display:block;margin:8px 0 4px;font-size:13px}',
@@ -316,7 +341,7 @@
     '.egr-t{width:100%;border-collapse:collapse;margin-bottom:12px}.egr-t th,.egr-t td{border:1px solid #d5dbe3;padding:4px 6px;text-align:left;vertical-align:top}.egr-t th{background:#f1f4f7;font-size:11px;white-space:normal}.egr-t td{white-space:normal}.egr-t .n{text-align:right}.egr-t tr.tot td{font-weight:700;background:#f6f8fa}.egr-2{display:grid;grid-template-columns:1fr 1fr;gap:16px}.egr-doc h3{margin:14px 0 6px;font-size:14px}',
     '.egr-doc table{min-width:0!important;width:100%}.egr-doc .tw{overflow:visible}.egr-doc .egtb{font-size:11px}',
     '@media print{body.egr-print>*:not(#ovegr){display:none!important}body.egr-print .egr-doc{font-size:10px}body.egr-print .egr-t th,body.egr-print .egr-t td{padding:3px 4px}body.egr-print .egr-t tr{break-inside:avoid}body.egr-print #ovegr{position:static;display:block!important;background:#fff}body.egr-print .egr-bar{display:none}body.egr-print .egr-doc{margin:0;max-width:none;padding:0}}',
-    '@media(max-width:760px){.egpay td:nth-child(3),.egpay th:nth-child(3){display:none}.egks{grid-template-columns:repeat(2,minmax(0,1fr))}.egk b{font-size:20px}.egj-r{grid-template-columns:1fr 1fr}.egj-l{grid-column:1/-1}.egtl{grid-template-columns:1fr 1fr}.egr-k{grid-template-columns:repeat(2,1fr)}.egr-2{grid-template-columns:1fr}.egpl{grid-auto-columns:minmax(240px,85%)}}'
+    '@media(max-width:760px){.egj-rf{grid-template-columns:1fr 1fr}.egj-rf .egj-l,.egj-rf .egj-w{grid-column:1/-1}.egpay td:nth-child(3),.egpay th:nth-child(3){display:none}.egks{grid-template-columns:repeat(2,minmax(0,1fr))}.egk b{font-size:20px}.egj-r{grid-template-columns:1fr 1fr}.egj-l{grid-column:1/-1}.egtl{grid-template-columns:1fr 1fr}.egr-k{grid-template-columns:repeat(2,1fr)}.egr-2{grid-template-columns:1fr}.egpl{grid-auto-columns:minmax(240px,85%)}}'
   ].join('\n');
   document.head.appendChild(css);
 

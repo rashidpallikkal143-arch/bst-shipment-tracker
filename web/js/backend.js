@@ -23,8 +23,10 @@
   var EG_KEYS = ['sr', 'sched', 'actual', 'items', 'batch', 'supplier', 'inv', 'brand', 'origin', 'ctn', 'pallets', 'container', 'vehicle', 'driver', 'mobile',
     'po', 'supPay', 'invAmt', 'frPay', 'frAmt', 'loading', 'ksa', 'ghu', 'wh', 'delivered', 'purchase', 'updated', 'remarks', 'poNo', 'poId',
     // the date each step happened (stamped by the Egypt pipeline; editable)
-    'invDate', 'dPo', 'dSupPay', 'dFrPay', 'dKsaArr', 'dKsa', 'dGhuArr', 'dGhu', 'dPurchase'];
-  var EG_NUM = { sr: 1, ctn: 1, pallets: 1, invAmt: 1, frAmt: 1 };
+    'invDate', 'dPo', 'dSupPay', 'dFrPay', 'dKsaArr', 'dKsa', 'dGhuArr', 'dGhu', 'dPurchase',
+    // reefer check when the purchase is booked
+    'temp', 'reefer', 'tempNote'];
+  var EG_NUM = { sr: 1, ctn: 1, pallets: 1, invAmt: 1, frAmt: 1, temp: 1 };
   var INSP_KEYS = ['id', 'ref', 'invoice', 'level', 'product', 'status', 'authority', 'date', 'result', 'clearance', 'clearDate', 'action', 'owner', 'due', 'remarks', 'updated', 'by'];
   var MX_KEYS = ['id', 'month', 'container', 'inv', 'invDate', 'desc', 'amount', 'paid', 'status', 'payDate', 'mode', 'ref', 'due', 'remarks', 'updated'];
   var DONE = ['Delivered to warehouse', 'Purchase not booked', 'Purchase booked'];

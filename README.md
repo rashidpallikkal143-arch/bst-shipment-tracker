@@ -132,3 +132,7 @@ New date fields on Egypt records: invDate, dPo, dSupPay, dFrPay, dKsaArr, dKsa, 
 Search by any detail: container no., truck plate, invoice, B/L, PO / PI, vessel, supplier, product, batch or SR no. Choose All, Egypt or Global.
 One match shows the delivery status table and the movement timeline (newest first, expected steps dimmed); several matches show a list to pick from.
 **Copy tracking link** gives a link like `https://bst-shipment-tracker.web.app/#track=TEMU0905735` that opens the page for a signed-in user.
+
+### Reefer check at purchase booking (Egypt)
+Marking a shipment **Purchase booked** (step button or form) asks for the **temperature (°C)**, the **reefer condition** (Reefer OK, Reefer Off, Reefer not working, Temperature confusion / unclear, Other reefer issue, Not a reefer (dry cargo)) and an optional note. The condition is required; the temperature is required unless it is dry cargo.
+Shown in: the dashboard panel *Reefer & temperature at booking* (counts, average / coldest / warmest, issues first), the supplier scorecard (*Reefer issues*), the Egypt report, the shipment details, Track shipment (under *Delivered to warehouse*) and the Excel export.
