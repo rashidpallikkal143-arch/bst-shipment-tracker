@@ -118,7 +118,7 @@ Filled fields are highlighted in yellow. Values that differ from what is already
 
 The Egypt section opens with an operations dashboard:
 - **KPI tiles**: open shipments, on the road, at the borders, overdue, delivered, cartons, supplier and freight payments due.
-- **Shipment pipeline**: every open shipment as a card in its current step (Planned → To KSA → At KSA → To Ghuwaifat → At Ghuwaifat → Out for delivery → Delivered). The green button moves it to the next step and records the date; dispatch asks for the truck plate and container no. (container numbers are checked with the ISO check digit).
+- **Shipment pipeline**: every open shipment as a card in its current step (Planned → To KSA → At KSA → To Ghuwaifat → At Ghuwaifat → Out for delivery → Delivered). The green button moves it to the next step and records the date; dispatch asks for the truck plate and container no.. Egypt container and truck numbers are short local numbers (e.g. 8253), so they are not checked as ISO container numbers.
 - **Payments due** with *Mark paid*, **transit times** per leg (from the step dates), **supplier scorecard**, **monthly trend** and **Needs fixing** (data checks with a *Fix* button that opens the right part of the form).
 - **🖨 Egypt report**: printable / PDF report (A4 landscape) for a month or all months.
 

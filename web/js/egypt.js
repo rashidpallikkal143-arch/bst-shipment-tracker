@@ -53,7 +53,6 @@
     if (st >= 1 && !r.actual) add('Dispatched but no dispatch date', 'trip');
     if (st >= 1 && !r.vehicle) add('Dispatched but no truck plate no.', 'truck');
     if (st >= 1 && !r.container) add('Dispatched but no container no.', 'truck');
-    if (r.container && !isoOk(r.container)) add('Container no. "' + r.container + '" is not a valid container number' + (/^\d+$/.test(r.container) ? ' (looks like a truck plate)' : ''), 'truck');
     if (r.delivered && st < 6) add('Has a delivery date but warehouse status is "' + (r.wh || 'not set') + '"', 'trip');
     if (st >= 6 && !r.delivered) add('Delivered but no delivery date', 'trip');
     if (r.actual && r.delivered && r.delivered < r.actual) add('Delivery date is before the dispatch date', 'trip', 'e');
@@ -153,7 +152,7 @@
     var s = stg(r); if (s >= 7) return;
     var opts = STEP.slice(s).map(function (x, k) { return '<option value="' + (s + k) + '"' + (k === 0 ? ' selected' : '') + '>' + esc(x.t) + '</option>'; }).join('');
     var body = '<div class="egm-now">Now: <b>' + esc(ST[s].t) + '</b></div><label>Move to<select id="egn-to">' + opts + '</select></label><label>Date<input type="date" id="egn-d" value="' + today() + '"></label>' +
-      '<div id="egn-tr" class="egm-g"><label>Truck plate no.<input id="egn-veh" value="' + esc(r.vehicle || '') + '" placeholder="e.g. 8253"></label><label>Container no.<input id="egn-cont" value="' + esc(r.container || '') + '" placeholder="e.g. MSKU1234565"><small id="egn-ci"></small></label>' +
+      '<div id="egn-tr" class="egm-g"><label>Truck plate no.<input id="egn-veh" value="' + esc(r.vehicle || '') + '" placeholder="e.g. 1481"></label><label>Container no.<input id="egn-cont" value="' + esc(r.container || '') + '" placeholder="e.g. 8253"></label>' +
       '<label>Driver<input id="egn-drv" value="' + esc(r.driver || '') + '"></label><label>Driver mobile<input id="egn-mob" value="' + esc(r.mobile || '') + '"></label></div><div class="mu">Skipped steps are marked done without a date; you can add dates later in Edit.</div>';
     var m = modal('Update ' + esc(ref(r)), body, 'Save step', function (m2) {
       var to = Number(m2.querySelector('#egn-to').value), d = m2.querySelector('#egn-d').value, v = {};
@@ -165,8 +164,7 @@
         v.vehicle = veh; v.container = ct; v.driver = m2.querySelector('#egn-drv').value.trim(); v.mobile = m2.querySelector('#egn-mob').value.trim(); if (!r.po) v.po = 'Placed'; }
       return save(r, v); });
     var tr = m.querySelector('#egn-tr'); tr.style.display = s === 0 ? '' : 'none';
-    var ci = function () { var c = m.querySelector('#egn-cont').value.trim(), el = m.querySelector('#egn-ci'); el.textContent = !c ? '' : isoOk(c) ? '✓ valid container number' : '⚠ not a valid container number (check digit)'; el.className = c && !isoOk(c) ? 'bad' : 'ok'; };
-    m.querySelector('#egn-cont').addEventListener('input', ci); ci(); }
+    }
   function markPaid(r, kind) {
     var amtK = kind === 'sup' ? 'invAmt' : 'frAmt', body = '<label>Paid on<input type="date" id="egp-d" value="' + today() + '"></label><label>' + (kind === 'sup' ? 'Invoice amount to supplier ($)' : 'Freight amount ($)') + '<input type="number" min="0" step="any" id="egp-a" value="' + esc(r[amtK] || '') + '"></label>';
     modal((kind === 'sup' ? 'Supplier payment · ' : 'Freight payment · ') + esc(ref(r)), body, 'Mark as paid', function (m) { var v = {}, d = m.querySelector('#egp-d').value, a = m.querySelector('#egp-a').value;
@@ -195,7 +193,7 @@
       inp('poNo', 'PO / schedule no.') + '<input type="hidden" data-e="poId" value="' + esc(val('poId')) + '">' + inp('brand', 'Brand') + inp('origin', 'Origin') + inp('sched', 'Planned loading date', 'date') + inp('invAmt', 'Invoice amount to supplier ($)', 'number') + '</div>' +
       '<datalist id="egf-sup">' + Object.keys(sups).sort().map(function (s) { return '<option value="' + esc(s) + '">'; }).join('') + '</datalist></div>' +
       '<div class="egf-sec" id="egs-items"><h3>Products <button id="eai" type="button">+ Add product</button></h3><div id="eits"></div><div class="g" style="margin-top:10px">' + inp('ctn', 'Total CTN (auto)', 'number') + inp('pallets', 'Total pallets (auto)', 'number') + '</div></div>' +
-      '<div class="egf-sec" id="egs-truck"><h3>Truck & container</h3><div class="g">' + inp('vehicle', 'Truck plate no.', '', ' placeholder="e.g. 8253"') + '<label>Container no.<input data-e="container" value="' + esc(val('container')) + '" placeholder="e.g. MSKU1234565"><small id="egf-ci"></small></label>' +
+      '<div class="egf-sec" id="egs-truck"><h3>Truck & container</h3><div class="g">' + inp('vehicle', 'Truck plate no.', '', ' placeholder="e.g. 1481"') + '<label>Container no.<input data-e="container" value="' + esc(val('container')) + '" placeholder="e.g. 8253"></label>' +
       inp('driver', 'Driver name') + inp('mobile', 'Driver mobile') + inp('frAmt', 'Freight amount ($)', 'number') + '</div></div>' +
       '<div class="egf-sec" id="egs-trip"><h3>Journey & dates <span class="mu">pick a status or type a date; the other fills itself</span></h3><div class="egj">' +
       STATUSROWS.map(function (x) { return '<div class="egj-r"><span class="egj-l">' + x[0] + '</span>' + sel(x[1]) + x[2].map(function (d) { return '<label class="egj-d">' + d[1] + '<input type="date" data-e="' + d[0] + '" value="' + esc(val(d[0])) + '"></label>'; }).join('') + '</div>'; }).join('') +
@@ -212,7 +210,7 @@
     if (!r) { var og = fm.querySelector('[data-e="origin"]'); if (og && !og.value) og.value = 'Egypt'; }
     $('eai').onclick = function () { egAddItem(); };
     var Q = function (k) { return fm.querySelector('[data-e="' + k + '"]'); };
-    var ci = function () { var c = Q('container').value.trim(), el = $('egf-ci'); el.textContent = !c ? '' : isoOk(c) ? '✓ valid container number' : '⚠ not a valid container number' + (/^\d+$/.test(c) ? ' (this looks like a truck plate)' : ''); el.className = c && !isoOk(c) ? 'bad' : 'ok'; };
+    var ci = function () {};
     var live = function () { var v = collect(true), l = checks(Object.assign({ position: posOf(v) }, v)); $('egf-chk').innerHTML = l.length ? '<b>Checks</b>' + l.map(function (c) { return '<div class="' + c.lvl + '">' + (c.lvl === 'e' ? '✖ ' : '⚠ ') + esc(c.m) + '</div>'; }).join('') : '<b>✓ Checks passed</b>'; };
     fm.oninput = function (e) { var t = e.target; if (t.dataset.e === 'container') ci(); clearTimeout(fm._t); fm._t = setTimeout(live, 250); };
     fm.onchange = function (e) { var t = e.target, k = t.dataset.e; if (!k) return;
