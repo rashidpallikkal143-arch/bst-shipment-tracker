@@ -122,6 +122,7 @@ The Egypt section opens with an operations dashboard:
 - **Payments due** with *Mark paid*, **transit times** per leg (from the step dates), **supplier scorecard**, **monthly trend** and **Needs fixing** (data checks with a *Fix* button that opens the right part of the form).
 - **🖨 Egypt report**: printable / PDF report (A4 landscape) for a month or all months.
 
+The Egypt invoice number (and amount) is only needed once the truck reaches the KSA border; the step to "Arrived at KSA border" asks for it.
 The entry form has five parts (Order & invoice, Products with batch per product, Truck & container, Journey & dates, Payments & notes). Picking a status fills its date and typing a date sets the status. Live checks are shown before saving.
 New date fields on Egypt records: invDate, dPo, dSupPay, dFrPay, dKsaArr, dKsa, dGhuArr, dGhu, dPurchase. The existing status fields are kept, so older views and reports keep working.
 

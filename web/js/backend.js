@@ -215,7 +215,9 @@
     return { months: months, rows: rows, cols: cols, lists: SET.egLists, today: today(), url: '' }; }); };
   API.saveEgyptEntry = function (o) { need('egEdit'); var v = o.v || {};
     if (!/^[A-Z]{3} \d{4}$/.test(String(o.month))) throw err('Invalid month');
-    if (!o.row && !String(v.inv || '').trim()) throw err('Invoice number is required');
+    // the Egypt invoice is issued when the truck reaches the KSA border: needed from then on
+    var atKsa = /arrived|cleared/i.test(v.ksa || '') || /en route|arrived|cleared/i.test(v.ghu || '') || /delivered|arrived/i.test(v.wh || '') || v.purchase === 'Booked';
+    if (!o.row && atKsa && !String(v.inv || '').trim()) throw err('Invoice number is required once the truck reaches the KSA border');
     if (!o.row && !v.items && !v.container && !v.supplier) throw err('Enter at least the items, container number or supplier');
     return S.db.all('eg').then(function (docs) {
       var data = {}; v.updated = today();

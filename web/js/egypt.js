@@ -47,7 +47,7 @@
     var out = [], st = stg(r), add = function (m, sec, lvl) { out.push({ m: m, sec: sec, lvl: lvl || 'w' }); };
     if (!String(r.supplier || '').trim()) add('Supplier not entered', 'order');
     else if (OWN.test(r.supplier)) add('Supplier is your own company (' + r.supplier + '), enter the Egyptian supplier', 'order');
-    if (!r.inv) add('Invoice no. missing', 'order', 'e');
+    if (!r.inv) { if (st >= 2) add('Invoice no. missing (needed from the KSA border)', 'order', 'e'); }
     else if (/^\d{4}-\d\d-\d\d$/.test(r.inv)) add('Invoice no. looks like a date (' + r.inv + ')', 'order');
     if (!String(r.items || '').trim()) add('No products entered', 'items', 'e');
     if (st >= 1 && !r.actual) add('Dispatched but no dispatch date', 'trip');
@@ -59,7 +59,7 @@
     var seq = [['actual', 'dispatch'], ['dKsaArr', 'KSA arrival'], ['dKsa', 'KSA clearance'], ['dGhuArr', 'Ghuwaifat arrival'], ['dGhu', 'Ghuwaifat clearance'], ['delivered', 'delivery']], last = null;
     seq.forEach(function (q) { var d = r[q[0]]; if (!d) return; if (last && d < last[0]) add('The ' + q[1] + ' date is before the ' + last[1] + ' date', 'trip'); last = [d, q[1]]; });
     var s = 0; itemsOf(r).forEach(function (i) { s += num(i.c); }); if (s && num(r.ctn) && num(r.ctn) !== s) add('Total CTN ' + nf(r.ctn) + ' does not match the products (' + nf(s) + ')', 'items');
-    if (st >= 1 && !num(r.invAmt)) add('Invoice amount missing', 'pay');
+    if (st >= 2 && !num(r.invAmt)) add('Invoice amount missing', 'pay');
     if (st >= 1 && !num(r.frAmt)) add('Freight amount missing', 'pay');
     return out; }
 
@@ -153,17 +153,19 @@
     var opts = STEP.slice(s).map(function (x, k) { return '<option value="' + (s + k) + '"' + (k === 0 ? ' selected' : '') + '>' + esc(x.t) + '</option>'; }).join('');
     var body = '<div class="egm-now">Now: <b>' + esc(ST[s].t) + '</b></div><label>Move to<select id="egn-to">' + opts + '</select></label><label>Date<input type="date" id="egn-d" value="' + today() + '"></label>' +
       '<div id="egn-tr" class="egm-g"><label>Truck plate no.<input id="egn-veh" value="' + esc(r.vehicle || '') + '" placeholder="e.g. 1481"></label><label>Container no.<input id="egn-cont" value="' + esc(r.container || '') + '" placeholder="e.g. 8253"></label>' +
-      '<label>Driver<input id="egn-drv" value="' + esc(r.driver || '') + '"></label><label>Driver mobile<input id="egn-mob" value="' + esc(r.mobile || '') + '"></label></div><div class="mu">Skipped steps are marked done without a date; you can add dates later in Edit.</div>';
+      '<label>Driver<input id="egn-drv" value="' + esc(r.driver || '') + '"></label><label>Driver mobile<input id="egn-mob" value="' + esc(r.mobile || '') + '"></label></div><label id="egn-invw">Invoice no. <span class="mu">(needed from the KSA border)</span><input id="egn-inv" value="' + esc(r.inv || '') + '"></label><div class="mu">Skipped steps are marked done without a date; you can add dates later in Edit.</div>';
     var m = modal('Update ' + esc(ref(r)), body, 'Save step', function (m2) {
       var to = Number(m2.querySelector('#egn-to').value), d = m2.querySelector('#egn-d').value, v = {};
       if (!d) throw new Error('Enter the date.');
       if (r.actual && d < r.actual && to > 0) throw new Error('The date is before the dispatch date (' + dlong(r.actual) + ').');
       for (var k = s; k <= to; k++) { var x = STEP[k]; Object.keys(x.set).forEach(function (f) { v[f] = x.set[f]; }); if (x.also) Object.keys(x.also).forEach(function (f) { if (!r[f] || r[f] === 'Not Placed') v[f] = v[f] || x.also[f]; }); if (k === to) v[x.date] = d; }
+      var inv = m2.querySelector('#egn-inv').value.trim(); if (to >= 1 && !inv) throw new Error('Enter the invoice number: it is needed once the truck reaches the KSA border.'); if (inv && inv !== (r.inv || '')) v.inv = inv;
       if (s === 0) { var veh = m2.querySelector('#egn-veh').value.trim(), ct = m2.querySelector('#egn-cont').value.trim().toUpperCase().replace(/\s+/g, '');
         if (!veh && !ct) throw new Error('Enter the truck plate no. and container no. for the dispatch.');
         v.vehicle = veh; v.container = ct; v.driver = m2.querySelector('#egn-drv').value.trim(); v.mobile = m2.querySelector('#egn-mob').value.trim(); if (!r.po) v.po = 'Placed'; }
       return save(r, v); });
     var tr = m.querySelector('#egn-tr'); tr.style.display = s === 0 ? '' : 'none';
+    var iw = function () { m.querySelector('#egn-invw').style.display = !r.inv && Number(m.querySelector('#egn-to').value) >= 1 ? '' : 'none'; }; m.querySelector('#egn-to').addEventListener('change', iw); iw();
     }
   function markPaid(r, kind) {
     var amtK = kind === 'sup' ? 'invAmt' : 'frAmt', body = '<label>Paid on<input type="date" id="egp-d" value="' + today() + '"></label><label>' + (kind === 'sup' ? 'Invoice amount to supplier ($)' : 'Freight amount ($)') + '<input type="number" min="0" step="any" id="egp-a" value="' + esc(r[amtK] || '') + '"></label>';
@@ -189,7 +191,7 @@
     var h = '<div class="egf-top"><h2>' + (r ? 'Edit Egypt shipment · ' + esc(r.month) + ' · SR ' + esc(r.sr) : pre ? 'New Egypt shipment from ' + esc(pre.poNo || 'purchase order') : 'New Egypt shipment') + '</h2><button data-x="ov3" type="button">Close</button></div>' +
       '<div class="egf-nav">' + SEC.map(function (x) { return '<button type="button" data-egs="' + x[0] + '">' + x[1] + '</button>'; }).join('') + '</div>' +
       '<div class="egf-sec" id="egs-order"><h3>Order & invoice</h3><div class="g"><label>Month<select id="ef-m"' + (r ? ' disabled' : '') + '>' + E.months.map(function (m) { return '<option' + (m === cur ? ' selected' : '') + '>' + esc(m) + '</option>'; }).join('') + '</select></label>' +
-      inp('sr', 'SR no.', 'number', ' placeholder="auto"') + inp('supplier', 'Supplier (Egypt) *', '', ' list="egf-sup" placeholder="e.g. Wega Foods"') + inp('inv', 'Invoice no. *') + inp('invDate', 'Invoice date', 'date') +
+      inp('sr', 'SR no.', 'number', ' placeholder="auto"') + inp('supplier', 'Supplier (Egypt) *', '', ' list="egf-sup" placeholder="e.g. Wega Foods"') + inp('inv', 'Invoice no.', '', ' placeholder="needed from KSA border"') + inp('invDate', 'Invoice date', 'date') +
       inp('poNo', 'PO / schedule no.') + '<input type="hidden" data-e="poId" value="' + esc(val('poId')) + '">' + inp('brand', 'Brand') + inp('origin', 'Origin') + inp('sched', 'Planned loading date', 'date') + inp('invAmt', 'Invoice amount to supplier ($)', 'number') + '</div>' +
       '<datalist id="egf-sup">' + Object.keys(sups).sort().map(function (s) { return '<option value="' + esc(s) + '">'; }).join('') + '</datalist></div>' +
       '<div class="egf-sec" id="egs-items"><h3>Products <button id="eai" type="button">+ Add product</button></h3><div id="eits"></div><div class="g" style="margin-top:10px">' + inp('ctn', 'Total CTN (auto)', 'number') + inp('pallets', 'Total pallets (auto)', 'number') + '</div></div>' +
@@ -226,7 +228,8 @@
         if (!n) return; lines.push(n + (p ? ' (' + p + ')' : '') + (c ? ': ' + Number(c).toLocaleString('en-US') + ' ctn' : '') + (l ? ' / ' + l + ' plt' : '') + (b ? ' [Batch: ' + b + ']' : '')); if (b && bs.indexOf(b) < 0) bs.push(b); });
       v.items = lines.join('\n'); v.batch = bs.join(', '); return v; }
     $('esv').onclick = function () { var v = collect(), m = $('ef-m').value;
-      if (!r && !v.inv) { alert('Invoice number is required.'); $('egs-order').scrollIntoView(); return; }
+      var P = ['Pre-Shipment', 'Awaiting Dispatch', 'En Route to KSA Border'], ps = posOf(v);
+      if (!v.inv && P.indexOf(ps) < 0) { alert('Enter the invoice number: it is needed once the truck reaches the KSA border.'); $('egs-order').scrollIntoView(); Q('inv').focus(); return; }
       if (!v.items && !v.container && !v.supplier) { alert('Enter at least one product, the container number or the supplier.'); return; }
       if (v.actual && v.delivered && v.delivered < v.actual) { alert('The delivery date is before the dispatch date.'); $('egs-trip').scrollIntoView(); return; }
       if (!r && !v.sr) delete v.sr;
