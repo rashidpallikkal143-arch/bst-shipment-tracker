@@ -23,14 +23,17 @@
     var its = egItems(r), ctn = Number(r.ctn) || its.reduce(function (s, i) { return s + (Number(i.c) || 0); }, 0), dl = r.wh === 'Delivered' || r.wh === 'Arrived';
     var ev = [], add = function (d, t, where, icon, done) { ev.push({ d: d, t: t, w: where, i: icon, done: done !== false }); };
     var st = r.position || '', origin = r.origin || 'Egypt';
-    if (r.sched) add(r.sched, 'Loading planned', origin, '📋', !!r.actual || r.loading === 'Dispatched');
-    if (r.loading === 'Dispatched' || r.actual) add(r.actual, 'Dispatched from Egypt', origin + '  -to-  KSA border', '🚚');
-    if (r.dKsaArr || r.ksa === 'Arrived' || r.ksa === 'Cleared') add(r.dKsaArr, 'Arrived at KSA border', 'Saudi Arabia', '🛃');
-    if (r.dKsa || r.ksa === 'Cleared') add(r.dKsa, 'Cleared KSA border', 'KSA  -to-  Ghuwaifat border', '🚚');
-    if (r.dGhuArr || r.ghu === 'Arrived' || r.ghu === 'Cleared') add(r.dGhuArr, 'Arrived at Ghuwaifat border', 'Ghuwaifat, UAE', '🛃');
-    if (r.dGhu || r.ghu === 'Cleared') add(r.dGhu, 'Cleared UAE customs, out for delivery', 'Ghuwaifat  -to-  warehouse', '🚚');
-    if (r.delivered || dl) add(r.delivered, 'Delivered to warehouse', 'BST warehouse, UAE', '✅');
-    if (r.dPurchase || r.purchase === 'Booked') add(r.dPurchase, 'Purchase booked in the system', 'BST', '🧾');
+    // the step the shipment has reached (same order as the Egypt pipeline); every step up to it is shown, with its date when recorded
+    var P = ['Pre-Shipment', 'Awaiting Dispatch', 'En Route to KSA Border', 'At KSA Border', 'En Route to Ghuwaifat', 'At Ghuwaifat Border', 'Out for Delivery', 'Delivered to Warehouse', 'Closed - Purchase Booked'], at = P.indexOf(st);
+    var reached = function (k, d) { return !!d || at >= k; };
+    if (r.sched) add(r.sched, 'Loading planned', origin, '📋');
+    if (reached(2, r.actual)) add(r.actual, 'Dispatched from Egypt', origin + '  -to-  KSA border', '🚚');
+    if (reached(3, r.dKsaArr)) add(r.dKsaArr, 'Arrived at KSA border', 'Saudi Arabia', '🛃');
+    if (reached(4, r.dKsa)) add(r.dKsa, 'Cleared KSA border', 'KSA  -to-  Ghuwaifat border', '🚚');
+    if (reached(5, r.dGhuArr)) add(r.dGhuArr, 'Arrived at Ghuwaifat border', 'Ghuwaifat, UAE', '🛃');
+    if (reached(6, r.dGhu)) add(r.dGhu, 'Cleared UAE customs, out for delivery', 'Ghuwaifat  -to-  warehouse', '🚚');
+    if (reached(7, r.delivered) || dl) add(r.delivered, 'Delivered to warehouse', 'BST warehouse, UAE', '✅');
+    if (reached(8, r.dPurchase)) add(r.dPurchase, 'Purchase booked in the system', 'BST', '🧾');
     if (!dl && r.eta) add(r.eta, 'Expected delivery (ETA)', 'BST warehouse, UAE', '⏳', false);
     return { sc: 'eg', id: r.row, raw: r, ref: r.container || r.vehicle || ('SR ' + r.sr), sub: 'Egypt · ' + r.month + ' · SR ' + r.sr,
       status: st || 'Pre-Shipment', alert: !dl && r.alert && /overdue|due/i.test(r.alert) ? r.alert : '', done: dl,
@@ -103,8 +106,7 @@
       (l.length > 60 ? '<div class="mu">Showing the first 60. Type more of the number to narrow it down.</div>' : ''); }
   function show(x, fromList) {
     $('tk-n').textContent = '';
-    var ev = x.ev.slice().sort(function (a, b) { var A = a.d || '', B = b.d || ''; if (A === B) return 0; if (!A) return 1; if (!B) return -1; return A < B ? 1 : -1; });
-    var undated = x.ev.filter(function (e) { return !e.d; }); if (undated.length) ev = x.ev.filter(function (e) { return e.d; }).sort(function (a, b) { return a.d < b.d ? 1 : -1; }).concat(undated.reverse());
+    var ev = x.ev.filter(function (e) { return !e.done; }).sort(function (a, b) { return (a.d || '') < (b.d || '') ? 1 : -1; }).concat(x.ev.filter(function (e) { return e.done; }).reverse());
     var cur = ev.filter(function (e) { return e.done; })[0];
     var h = (fromList ? '<button type="button" class="tk-back" data-tk="back">‹ Back to ' + LAST.length + ' results</button>' : '') +
       '<div class="tk-res"><div class="tk-l"><table class="tk-t"><thead><tr><th colspan="2">Delivery Status</th></tr></thead><tbody>' +
