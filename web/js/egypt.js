@@ -77,6 +77,11 @@
       '<div class="egc-s">' + esc(supName(r.supplier) || 'Supplier not entered') + '</div><div class="mu">' + esc((its[0] && its[0].n) || '') + (its.length > 1 ? ' +' + (its.length - 1) : '') + (ctnOf(r) ? ' · ' + nf(ctnOf(r)) + ' CTN' : '') + '</div>' +
       '<div class="egc-f"><span class="mu">' + esc(when) + '</span>' + al + (nfix ? '<span class="egb w" title="Needs fixing">⚠ ' + nfix + '</span>' : '') + '</div></div>' +
       (can('egEdit') ? '<div class="egc-a">' + (s < 7 ? '<button type="button" class="p" data-egx="next" data-i="' + r._i + '">' + esc(STEP[s].b) + ' ▸</button>' : '') + '<button type="button" data-egx="edit" data-i="' + r._i + '" title="Edit">✎</button></div>' : '') + '</div>'; }
+  var FOLD = (function () { try { return JSON.parse(localStorage.getItem('bst.egfold') || '{}') || {}; } catch (e) { return {}; } })();
+  function cl(k) { return FOLD[k] ? ' egcl' : ''; }
+  function ar(k) { return '<span class="egar" aria-hidden="true">' + (FOLD[k] ? '▸' : '▾') + '</span>'; }
+  function fold(k) { FOLD[k] = !FOLD[k]; try { localStorage.setItem('bst.egfold', JSON.stringify(FOLD)); } catch (e) {}
+    var p = document.querySelector('#egdash [data-egp="' + k + '"]'); if (!p) return; p.classList.toggle('egcl', !!FOLD[k]); var a = p.querySelector('[data-egtg="' + k + '"] .egar'); if (a) a.textContent = FOLD[k] ? '▸' : '▾'; }
   function render() {
     var host = $('egdash'); if (!host || !window.E || !E.rows) return;
     var all = E.rows, sc = all.filter(inScope), open = all.filter(function (r) { return stg(r) <= 5; });
@@ -96,7 +101,7 @@
       kpi('Supplier payments due', supDue.length, '$ ' + nf(sum(supDue, 'invAmt')) + (supDue.some(function (r) { return !num(r.invAmt); }) ? ' + amounts missing' : ''), supDue.length ? 'o' : 'g', 'pay') +
       kpi('Freight payments due', frDue.length, '$ ' + nf(sum(frDue, 'frAmt')) + (frDue.some(function (r) { return !num(r.frAmt); }) ? ' + amounts missing' : ''), frDue.length ? 'o' : 'g', 'pay') + '</div>';
     // pipeline
-    h += '<div class="pn" id="eg-board"><h3 class="egt">Shipment pipeline <span class="mu">every open shipment, all months · tap a card for details' + (can('egEdit') ? ', use the green button to move it to the next step' : '') + '</span></h3><div class="egpl">' +
+    h += '<div class="pn' + cl('board') + '" id="eg-board" data-egp="board"><h3 class="egt" data-egtg="board">' + ar('board') + 'Shipment pipeline <span class="mu">every open shipment, all months · tap a card for details' + (can('egEdit') ? ', use the green button to move it to the next step' : '') + '</span></h3><div class="egpl">' +
       ST.slice(0, 7).map(function (s, i) { var l = all.filter(function (r) { return stg(r) === i; }).sort(function (a, b) { return Number(isOver(b)) - Number(isOver(a)) || (stuck(b) || 0) - (stuck(a) || 0); });
         return '<div class="egcol"><div class="egcol-h" style="border-color:' + s.c + '"><b>' + esc(s.t) + '</b><span>' + l.length + '</span></div>' + (l.length ? l.map(cardHtml).join('') : '<div class="egempty">Nothing here</div>') + '</div>'; }).join('') +
       '</div><div class="mu" style="margin-top:6px">Closed (purchase booked): ' + all.filter(function (r) { return stg(r) === 7; }).length + ' shipments.</div></div>';
@@ -106,15 +111,15 @@
         (can('egEdit') ? '<button type="button" class="sm" data-egx="paid" data-k="' + kind + '" data-i="' + r._i + '">Mark paid</button>' : '') + '</td></tr>'; };
     var payT = function (l, kind) { return l.length ? '<div class="tw"><table class="egtb egpay"><thead><tr><th>Shipment</th><th>' + (kind === 'sup' ? 'Supplier' : 'Truck') + '</th><th>Status</th><th class="n">Amount</th><th></th></tr></thead><tbody>' + l.map(function (r) { return payRow(r, kind); }).join('') +
       '</tbody><tfoot><tr><td colspan="3"><b>Total</b></td><td class="n"><b>$ ' + nf(sum(l, kind === 'sup' ? 'invAmt' : 'frAmt')) + '</b></td><td></td></tr></tfoot></table></div>' : '<div class="mu">All paid.</div>'; };
-    h += '<div class="grid2"><div class="pn" id="eg-pay"><h3 class="egt">Payments due</h3><b class="egst">Supplier payments (' + supDue.length + ')</b>' + payT(supDue, 'sup') + '<b class="egst">Truck freight payments (' + frDue.length + ')</b>' + payT(frDue, 'fr') + '</div>';
-    h += '<div class="pn"><h3 class="egt">Transit times <span class="mu">average days · ' + esc(scopeLabel()) + '</span></h3>' + transitHtml(sc) + '</div></div>';
+    h += '<div class="grid2"><div class="pn' + cl('pay') + '" id="eg-pay" data-egp="pay"><h3 class="egt" data-egtg="pay">' + ar('pay') + 'Payments due</h3><div class="egsub' + cl('paysup') + '" data-egp="paysup"><b class="egst" data-egtg="paysup">' + ar('paysup') + 'Supplier payments (' + supDue.length + ')</b>' + payT(supDue, 'sup') + '</div><div class="egsub' + cl('payfr') + '" data-egp="payfr"><b class="egst" data-egtg="payfr">' + ar('payfr') + 'Truck freight payments (' + frDue.length + ')</b>' + payT(frDue, 'fr') + '</div>' + '</div>';
+    h += '<div class="pn' + cl('transit') + '" data-egp="transit"><h3 class="egt" data-egtg="transit">' + ar('transit') + 'Transit times <span class="mu">average days · ' + esc(scopeLabel()) + '</span></h3>' + transitHtml(sc) + '</div></div>';
     // needs fixing + suppliers
     var fixL = fixes.filter(function (f) { return inScope(f.r) || stg(f.r) <= 6; });
-    h += '<div class="grid2"><div class="pn" id="eg-fix"><h3 class="egt">Needs fixing <span class="mu">' + fixL.length + ' issue(s) · fix them so reports are right</span></h3>' +
+    h += '<div class="grid2"><div class="pn' + cl('fix') + '" id="eg-fix" data-egp="fix"><h3 class="egt" data-egtg="fix">' + ar('fix') + 'Needs fixing <span class="mu">' + fixL.length + ' issue(s) · fix them so reports are right</span></h3>' +
       (fixL.length ? '<div class="egfx">' + fixL.map(function (f) { return '<div class="egfi ' + f.c.lvl + '"><span><b>' + esc(ref(f.r)) + '</b> <span class="mu">' + esc(f.r.month) + ' · SR ' + esc(f.r.sr) + '</span><br>' + esc(f.c.m) + '</span>' +
         (can('egEdit') ? '<button type="button" class="sm" data-egx="fix" data-sec="' + f.c.sec + '" data-i="' + f.r._i + '">Fix</button>' : '') + '</div>'; }).join('') + '</div>' : '<div class="mu">✓ No problems found.</div>') + '</div>';
-    h += '<div class="pn"><h3 class="egt">Suppliers <span class="mu">' + esc(scopeLabel()) + '</span></h3>' + supplierHtml(sc) + '</div></div>';
-    h += '<div class="pn"><h3 class="egt">Monthly trend</h3>' + trendHtml() + '</div>';
+    h += '<div class="pn' + cl('sup') + '" data-egp="sup"><h3 class="egt" data-egtg="sup">' + ar('sup') + 'Suppliers <span class="mu">' + esc(scopeLabel()) + '</span></h3>' + supplierHtml(sc) + '</div></div>';
+    h += '<div class="pn' + cl('trend') + '" data-egp="trend"><h3 class="egt" data-egtg="trend">' + ar('trend') + 'Monthly trend</h3>' + trendHtml() + '</div>';
     host.innerHTML = h; }
   function transitHtml(l) {
     var rows = LEGS.map(function (g) { var v = []; l.forEach(function (r) { var x = dd(r[g[1]], r[g[2]]); if (x != null && x >= 0) v.push(x); });
@@ -284,6 +289,8 @@
     '#egdash{margin-bottom:12px}.egh{display:flex;justify-content:space-between;align-items:flex-end;gap:10px;flex-wrap:wrap;margin:4px 0 12px}.egh h2{margin:0;font-size:20px}.egh-b{display:flex;gap:8px;flex-wrap:wrap}.warnb{border-color:#f0c43c;background:#fff8e1}',
     '.egks{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:12px}.egk{background:#fff;border:1px solid var(--bd);border-left:4px solid #8a94a6;border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;gap:2px;cursor:pointer;min-width:0}.egk span{font-size:12px;color:var(--mu);font-weight:600}.egk b{font-size:24px;line-height:1.1}.egk em{font-style:normal;font-size:12px;color:var(--mu);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
     '.egk.b{border-left-color:var(--bl)}.egk.o{border-left-color:var(--wa)}.egk.r{border-left-color:var(--er)}.egk.r b{color:var(--er)}.egk.g{border-left-color:var(--ac)}.egk:hover{box-shadow:0 2px 10px rgba(0,0,0,.06)}',
+    '[data-egtg]{cursor:pointer;user-select:none}.egar{display:inline-flex;width:20px;height:20px;align-items:center;justify-content:center;border-radius:6px;background:#eef6f1;color:var(--acd);font-size:12px;margin-right:6px;flex:none}[data-egtg]:hover .egar{background:var(--ac);color:#fff}' +
+    '.grid2>.pn.egcl{align-self:start}.pn.egcl>:not(.egt){display:none!important}.pn.egcl .egt{margin-bottom:0}.egsub.egcl>:not(.egst){display:none!important}.egst{display:flex!important;align-items:center}' +
     '.egt{margin:0 0 10px;font-size:15px;display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}.egt .mu{font-weight:400;font-size:12px}.egst{display:block;margin:8px 0 4px;font-size:13px}',
     '.egpl{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(196px,1fr);gap:10px;overflow-x:auto;padding-bottom:6px}.egcol{background:#f6f8fa;border-radius:10px;padding:8px;min-height:120px}.egcol-h{display:flex;justify-content:space-between;align-items:center;border-top:3px solid;padding:6px 2px 8px;font-size:13px}.egcol-h span{background:#fff;border-radius:999px;padding:1px 9px;font-weight:700;border:1px solid var(--bd)}',
     '.egc{background:#fff;border:1px solid var(--bd);border-radius:10px;margin-bottom:8px;overflow:hidden}.egc.late{border-color:var(--er);box-shadow:inset 3px 0 0 var(--er)}.egc-m{padding:8px 10px;cursor:pointer}.egc-t{display:flex;justify-content:space-between;gap:6px}.egc-s{font-size:13px;margin:2px 0}.egc-f{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:4px;font-size:12px}',
@@ -316,9 +323,10 @@
     var hideP = function (id) { var e = $(id); if (!e) return; var p = e.closest('.grid2') || e.closest('.pn'); if (p) p.style.display = 'none'; };
     ['ecards', 'epos', 'eatt'].forEach(hideP); if (hl) hl.style.display = 'none'; var ea = $('eadd'); if (ea && ea.closest('.tools')) ea.closest('.tools').style.display = 'none';
     d.addEventListener('click', function (e) {
+      var tg = e.target.closest('[data-egtg]'); if (tg && !e.target.closest('a,button')) return fold(tg.dataset.egtg);
       var b = e.target.closest('[data-egx],[data-egk],[data-egm]'); if (!b) return; var r = b.dataset.i != null ? E.rows[Number(b.dataset.i)] : null;
       if (b.dataset.egm) { month = b.dataset.egm; var em = $('em'); if (em) em.value = month; if (typeof renderAll === 'function') renderAll(); return; }
-      if (b.dataset.egk) { var k = b.dataset.egk; if (k === 'board') return $('eg-board').scrollIntoView({ behavior: 'smooth' }); if (k === 'pay') return $('eg-pay').scrollIntoView({ behavior: 'smooth' }); if (k === 'fix') return $('eg-fix').scrollIntoView({ behavior: 'smooth' });
+      if (b.dataset.egk) { var k = b.dataset.egk; if (k === 'board' || k === 'pay' || k === 'fix') { if (FOLD[k]) fold(k); if (k === 'pay') { if (FOLD.paysup) fold('paysup'); if (FOLD.payfr) fold('payfr'); } return $('eg-' + k).scrollIntoView({ behavior: 'smooth' }); }
         if (/^f:/.test(k)) { eF = k.slice(2); if (typeof renderEgReport === 'function') renderEgReport(); var t = $('etb'); if (t) t.closest('.pn').scrollIntoView({ behavior: 'smooth' }); } return; }
       var x = b.dataset.egx; if (x === 'new') return openForm(); if (x === 'report') return report(); if (!r) return;
       if (x === 'next') return nextStep(r); if (x === 'edit') return openForm(r); if (x === 'paid') return markPaid(r, b.dataset.k); if (x === 'fix') return openForm(r, null, b.dataset.sec); }); }
