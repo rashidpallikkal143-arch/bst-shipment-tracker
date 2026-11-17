@@ -124,7 +124,7 @@
 
   var css = document.createElement('style');
   css.textContent = [
-    '#ovtrk{position:fixed;inset:0;z-index:85;background:#fff;overflow:auto;display:none;font-family:Poppins,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}body.tk-on{overflow:hidden}',
+    '#ovtrk{position:fixed;inset:0;z-index:96;background:#fff;overflow:auto;display:none;font-family:Poppins,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}body.tk-on{overflow:hidden}',
     '.tk-hd{background:linear-gradient(120deg,#9d0b0e,#e30613 60%,#b00008);color:#fff;padding:26px 0 30px}.tk-in{max-width:1140px;margin:0 auto;padding:0 20px;position:relative}.tk-hd h1{margin:0 0 8px;font:400 34px/1.15 Georgia,"Times New Roman",serif}.tk-bc{font-size:15px}.tk-bc a{color:#fff;cursor:pointer}',
     '.tk-x{position:absolute;right:20px;top:-6px;background:rgba(255,255,255,.18);color:#fff;border:1px solid rgba(255,255,255,.4);border-radius:8px;padding:6px 11px;cursor:pointer}',
     '.tk-s{display:flex;margin:44px 0 10px;max-width:640px}.tk-s input{flex:1;border:1px solid #d6d6d6;border-right:0;border-radius:4px 0 0 4px;padding:9px 12px;font-size:15px;min-width:0}.tk-s button{background:#df1f26;color:#fff;border:0;border-radius:0 4px 4px 0;padding:9px 16px;font-size:15px;cursor:pointer;white-space:nowrap}.tk-s button:disabled{opacity:.6}',
