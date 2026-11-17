@@ -1,5 +1,5 @@
 /* "Track your shipment": one search box for Egypt and Global shipments, courier-style status table and timeline.
-   Search by anything: container, truck plate, invoice, B/L, PO / PI, vessel, supplier, product, batch, SR no. */
+   Search by anything: container, truck plate, invoice, B/L, PO / PI, vessel, supplier, product, batch, order no. */
 (function () {
   'use strict';
   var $ = function (id) { return document.getElementById(id); };
@@ -35,7 +35,7 @@
     if (reached(7, r.delivered) || dl) add(r.delivered, 'Delivered to warehouse', 'BST warehouse, UAE', '✅');
     if (reached(8, r.dPurchase)) add(r.dPurchase, 'Purchase booked in the system', 'BST', '🧾');
     if (!dl && r.eta) add(r.eta, 'Expected delivery (ETA)', 'BST warehouse, UAE', '⏳', false);
-    return { sc: 'eg', id: r.row, raw: r, ref: r.container || r.vehicle || ('SR ' + r.sr), sub: 'Egypt · ' + r.month + ' · SR ' + r.sr,
+    return { sc: 'eg', id: r.row, raw: r, ref: r.container || r.vehicle || ('#' + r.sr), sub: 'Egypt · ' + r.month + ' · #' + r.sr,
       status: st || 'Pre-Shipment', alert: !dl && r.alert && /overdue|due/i.test(r.alert) ? r.alert : '', done: dl,
       rows: [['Current Status', st || 'Pre-Shipment'], ['Section', 'Egypt (road)'], ['Origin', origin], ['Destination', 'BST warehouse, UAE (via KSA & Ghuwaifat)'],
         ['Consignment', [ctn ? nf(ctn) + ' CTN' : '', Number(r.pallets) ? nf(r.pallets) + ' pallets' : '', its.length ? its.length + ' product' + (its.length > 1 ? 's' : '') : ''].filter(Boolean).join(' · ')],
@@ -80,7 +80,7 @@
     o.innerHTML = '<div class="tk-hd"><div class="tk-in"><button type="button" class="tk-x" id="tk-x" title="Close">✕</button><h1>Track Your Shipment</h1><div class="tk-bc"><a id="tk-home">Home</a> » Track Your Shipment</div></div></div>' +
       '<div class="tk-in"><form class="tk-s" id="tk-f" autocomplete="off"><input id="tk-q" placeholder="Enter container, truck, invoice, B/L, PO, product or batch no."><button type="submit" id="tk-go">🔍 Search</button></form>' +
       '<div class="tk-sc"><label><input type="radio" name="tk-sc" value="all" checked> All</label><label><input type="radio" name="tk-sc" value="eg"> Egypt</label><label><input type="radio" name="tk-sc" value="rx"> Global</label><span class="mu" id="tk-n"></span></div>' +
-      '<div id="tk-out"><div class="tk-hint">Type any detail of a shipment: <b>container no.</b>, <b>truck plate</b>, <b>invoice</b>, <b>B/L</b>, <b>PO / PI</b>, <b>vessel</b>, <b>supplier</b>, <b>product</b>, <b>batch</b> or <b>SR no.</b>, then press Search.</div></div></div>';
+      '<div id="tk-out"><div class="tk-hint">Type any detail of a shipment: <b>container no.</b>, <b>truck plate</b>, <b>invoice</b>, <b>B/L</b>, <b>PO / PI</b>, <b>vessel</b>, <b>supplier</b>, <b>product</b>, <b>batch</b> or <b>order no.</b>, then press Search.</div></div></div>';
     $('tk-x').onclick = $('tk-home').onclick = close;
     $('tk-f').onsubmit = function (e) { e.preventDefault(); go(); };
     o.querySelectorAll('[name="tk-sc"]').forEach(function (x) { x.onchange = function () { if ($('tk-q').value.trim()) go(); }; });

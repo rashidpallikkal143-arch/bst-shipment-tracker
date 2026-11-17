@@ -38,7 +38,7 @@
   function isoOk(c) { c = String(c || '').toUpperCase().replace(/[\s-]/g, ''); if (!/^[A-Z]{3}[UJZ]\d{7}$/.test(c)) return false; var s = 0; for (var i = 0; i < 10; i++) s += ISOV.indexOf(c[i]) * Math.pow(2, i); return (s % 11) % 10 === Number(c[10]); }
   function itemsOf(r) { return typeof egParseItems === 'function' ? egParseItems(r.items) : []; }
   function ctnOf(r) { if (num(r.ctn)) return num(r.ctn); var c = 0; itemsOf(r).forEach(function (i) { c += num(i.c); }); return c; }
-  function ref(r) { return r.container || r.vehicle || ('SR ' + r.sr); }
+  function ref(r) { return r.container || r.vehicle || ('#' + r.sr); }
   var OWN = /al[\s-]?saih|baniyas|\bbst\b/i;
   function supName(s) { s = String(s || '').trim(); if (!s) return ''; return s === s.toUpperCase() ? s.toLowerCase().replace(/(^|[\s(\/&-])([a-z])/g, function (a, b, c) { return b + c.toUpperCase(); }) : s; }
 
@@ -116,7 +116,7 @@
     // needs fixing + suppliers
     var fixL = fixes.filter(function (f) { return inScope(f.r) || stg(f.r) <= 6; });
     h += '<div class="grid2"><div class="pn' + cl('fix') + '" id="eg-fix" data-egp="fix"><h3 class="egt" data-egtg="fix">' + ar('fix') + 'Needs fixing <span class="mu">' + fixL.length + ' issue(s) · fix them so reports are right</span></h3>' +
-      (fixL.length ? '<div class="egfx">' + fixL.map(function (f) { return '<div class="egfi ' + f.c.lvl + '"><span><b>' + esc(ref(f.r)) + '</b> <span class="mu">' + esc(f.r.month) + ' · SR ' + esc(f.r.sr) + '</span><br>' + esc(f.c.m) + '</span>' +
+      (fixL.length ? '<div class="egfx">' + fixL.map(function (f) { return '<div class="egfi ' + f.c.lvl + '"><span><b>' + esc(ref(f.r)) + '</b> <span class="mu">' + esc(f.r.month) + ' · #' + esc(f.r.sr) + '</span><br>' + esc(f.c.m) + '</span>' +
         (can('egEdit') ? '<button type="button" class="sm" data-egx="fix" data-sec="' + f.c.sec + '" data-i="' + f.r._i + '">Fix</button>' : '') + '</div>'; }).join('') + '</div>' : '<div class="mu">✓ No problems found.</div>') + '</div>';
     h += '<div class="pn' + cl('sup') + '" data-egp="sup"><h3 class="egt" data-egtg="sup">' + ar('sup') + 'Suppliers <span class="mu">' + esc(scopeLabel()) + '</span></h3>' + supplierHtml(sc) + '</div></div>';
     h += '<div class="pn' + cl('trend') + '" data-egp="trend"><h3 class="egt" data-egtg="trend">' + ar('trend') + 'Monthly trend</h3>' + trendHtml() + '</div>';
@@ -192,10 +192,10 @@
     var inp = function (k, label, type, extra) { return '<label>' + label + '<input data-e="' + k + '" value="' + esc(val(k)) + '"' + (type === 'date' ? ' type="date"' : type === 'number' ? ' type="number" min="0" step="any"' : '') + (extra || '') + '></label>'; };
     var sel = function (k) { return '<select data-e="' + k + '">' + (typeof egOpt === 'function' ? egOpt(k, val(k)) : '') + '</select>'; };
     var sups = {}; E.rows.forEach(function (x) { if (x.supplier && !OWN.test(x.supplier)) sups[supName(x.supplier)] = 1; });
-    var h = '<div class="egf-top"><h2>' + (r ? 'Edit Egypt shipment · ' + esc(r.month) + ' · SR ' + esc(r.sr) : pre ? 'New Egypt shipment from ' + esc(pre.poNo || 'purchase order') : 'New Egypt shipment') + '</h2><button data-x="ov3" type="button">Close</button></div>' +
+    var h = '<div class="egf-top"><h2>' + (r ? 'Edit Egypt shipment · ' + esc(r.month) + ' · #' + esc(r.sr) : pre ? 'New Egypt shipment from ' + esc(pre.poNo || 'purchase order') : 'New Egypt shipment') + '</h2><button data-x="ov3" type="button">Close</button></div>' +
       '<div class="egf-nav">' + SEC.map(function (x) { return '<button type="button" data-egs="' + x[0] + '">' + x[1] + '</button>'; }).join('') + '</div>' +
       '<div class="egf-sec" id="egs-order"><h3>Order & invoice</h3><div class="g"><label>Month<select id="ef-m"' + (r ? ' disabled' : '') + '>' + E.months.map(function (m) { return '<option' + (m === cur ? ' selected' : '') + '>' + esc(m) + '</option>'; }).join('') + '</select></label>' +
-      inp('sr', 'SR no.', 'number', ' placeholder="auto"') + inp('supplier', 'Supplier (Egypt)', '', ' list="egf-sup" placeholder="e.g. Wega Foods"') + inp('inv', 'Invoice no.', '', ' placeholder="needed at purchase booking"') + inp('invDate', 'Invoice date', 'date') +
+      inp('sr', 'Order no.', 'number', ' placeholder="auto"') + inp('supplier', 'Supplier (Egypt)', '', ' list="egf-sup" placeholder="e.g. Wega Foods"') + inp('inv', 'Invoice no.', '', ' placeholder="needed at purchase booking"') + inp('invDate', 'Invoice date', 'date') +
       inp('poNo', 'PO / schedule no.') + '<input type="hidden" data-e="poId" value="' + esc(val('poId')) + '">' + inp('brand', 'Brand') + inp('origin', 'Origin') + inp('sched', 'Planned loading date', 'date') + inp('invAmt', 'Invoice amount to supplier ($)', 'number') + '</div>' +
       '<datalist id="egf-sup">' + Object.keys(sups).sort().map(function (s) { return '<option value="' + esc(s) + '">'; }).join('') + '</datalist></div>' +
       '<div class="egf-sec" id="egs-items"><h3>Products <button id="eai" type="button">+ Add product</button></h3><div id="eits"></div><div class="g" style="margin-top:10px">' + inp('ctn', 'Total CTN (auto)', 'number') + inp('pallets', 'Total pallets (auto)', 'number') + '</div></div>' +
@@ -275,7 +275,7 @@
     var rows = l.slice().sort(function (a, b) { return (a.month === b.month ? 0 : E.months.indexOf(a.month) - E.months.indexOf(b.month)) || num(a.sr) - num(b.sr); });
     return '<div class="egr-h"><div><h1>Egypt import shipments report</h1><div>Baniyas Spike Trading · ' + esc(per === 'ALL' ? 'All months' : per) + ' · printed ' + esc(dlong(today())) + '</div></div></div>' +
       '<div class="egr-k">' + k.map(function (x) { return '<div><span>' + x[0] + '</span><b>' + x[1] + '</b></div>'; }).join('') + '</div>' +
-      '<h3>Shipments</h3><table class="egr-t"><thead><tr><th>SR</th><th>Month</th><th>Container / truck</th><th>Supplier</th><th>Invoice</th><th>Products</th><th class="n">CTN</th><th>Dispatched</th><th>KSA cleared</th><th>Ghuwaifat cleared</th><th>Delivered</th><th class="n">Days</th><th>Status</th></tr></thead><tbody>' +
+      '<h3>Shipments</h3><table class="egr-t"><thead><tr><th>#</th><th>Month</th><th>Container / truck</th><th>Supplier</th><th>Invoice</th><th>Products</th><th class="n">CTN</th><th>Dispatched</th><th>KSA cleared</th><th>Ghuwaifat cleared</th><th>Delivered</th><th class="n">Days</th><th>Status</th></tr></thead><tbody>' +
       rows.map(function (r) { var t = dd(r.actual, r.delivered); return '<tr><td>' + esc(r.sr) + '</td><td>' + esc(r.month) + '</td><td>' + esc(r.container || '-') + (r.vehicle ? '<br><small>' + esc(r.vehicle) + '</small>' : '') + '</td><td>' + esc(supName(r.supplier) || '-') + '</td><td>' + esc(r.inv || '-') + '</td><td>' +
         itemsOf(r).map(function (i) { return esc(i.n) + (i.b ? ' <small>(' + esc(i.b) + ')</small>' : ''); }).join('<br>') + '</td><td class="n">' + nf(ctnOf(r)) + '</td><td>' + esc(dshow(r.actual) || '-') + '</td><td>' + esc(dshow(r.dKsa) || (stg(r) >= 3 ? '✓' : '-')) + '</td><td>' + esc(dshow(r.dGhu) || (stg(r) >= 5 ? '✓' : '-')) + '</td><td>' + esc(dshow(r.delivered) || '-') + '</td><td class="n">' + (t != null && t >= 0 ? t : '') + '</td><td>' + esc(ST[stg(r)].s) + (isOver(r) ? ' · <b>' + esc(r.alert) + '</b>' : '') + '</td></tr>'; }).join('') +
       '<tr class="tot"><td colspan="6">Total ' + l.length + ' shipments</td><td class="n">' + nf(ctn) + '</td><td colspan="6"></td></tr></tbody></table>' +
