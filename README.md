@@ -118,11 +118,11 @@ Filled fields are highlighted in yellow. Values that differ from what is already
 
 The Egypt section opens with an operations dashboard:
 - **KPI tiles**: open shipments, on the road, at the borders, overdue, delivered, cartons, supplier and freight payments due.
-- **Shipment pipeline**: every open shipment as a card in its current step (Planned → To KSA → At KSA → To Ghuwaifat → At Ghuwaifat → Out for delivery → Delivered). The green button moves it to the next step and records the date; dispatch asks for the truck plate and container no.. Egypt container and truck numbers are short local numbers (e.g. 8253), so they are not checked as ISO container numbers.
+- **Shipment pipeline**: every open shipment as a card in its current step (Planned → To KSA → At KSA → To Ghuwaifat → At Ghuwaifat → Out for delivery → Delivered). The green button moves it to the next step and records the date; dispatch offers fields for the truck plate and container no.. Egypt container and truck numbers are short local numbers (e.g. 8253), so they are not checked as ISO container numbers.
 - **Payments due** with *Mark paid*, **transit times** per leg (from the step dates), **supplier scorecard**, **monthly trend** and **Needs fixing** (data checks with a *Fix* button that opens the right part of the form).
 - **🖨 Egypt report**: printable / PDF report (A4 landscape) for a month or all months.
 
-The Egypt invoice number (and amount) is only needed once the truck reaches the KSA border; the step to "Arrived at KSA border" asks for it.
+Nothing is compulsory while the shipment moves. Only marking **Purchase booked** requires the main details: supplier, invoice no. and amount, products with CTN, container no., truck plate no., freight amount, dispatch and delivery dates. Delivered shipments that still miss any of these appear in Needs fixing.
 The entry form has five parts (Order & invoice, Products with batch per product, Truck & container, Journey & dates, Payments & notes). Picking a status fills its date and typing a date sets the status. Live checks are shown before saving.
 New date fields on Egypt records: invDate, dPo, dSupPay, dFrPay, dKsaArr, dKsa, dGhuArr, dGhu, dPurchase. The existing status fields are kept, so older views and reports keep working.
 
