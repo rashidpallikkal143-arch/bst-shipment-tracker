@@ -215,7 +215,7 @@
   var C_EG = [['Row ID (keep for updates)', 'row', 'id'], ['Month', 'month'], ['Order no.', 'sr', 'n', ['SR no.']], ['Planned dispatch', 'sched', 'd'], ['Actual dispatch', 'actual', 'd'], ['Supplier', 'supplier'], ['Invoice no.', 'inv'], ['PO / schedule no.', 'poNo'],
     ['Batch', 'batch'], ['Brand', 'brand'], ['Origin', 'origin'], ['Container no.', 'container'], ['Vehicle no.', 'vehicle'], ['Driver', 'driver'], ['Driver mobile', 'mobile'], ['Items (one per line: Item (pack): CTN ctn / pallets plt [Batch: no.])', 'items'],
     ['Total CTN', 'ctn', 'n'], ['Total pallets', 'pallets', 'n'], ['Invoice amount ($)', 'invAmt', 'n'], ['Freight paid ($)', 'frAmt', 'n'], ['Supplier PO status', 'po'], ['Supplier payment', 'supPay'], ['Freight payment', 'frPay'],
-    ['Loading & dispatch', 'loading'], ['KSA border', 'ksa'], ['Ghuwaifat border', 'ghu'], ['Warehouse delivery', 'wh'], ['Purchase entry', 'purchase'], ['Actual delivery date', 'delivered', 'd'], ['Temperature at booking (°C)', 'temp', 'n'], ['Reefer condition', 'reefer'], ['Temperature note', 'tempNote'], ['Remarks', 'remarks'],
+    ['Loading & dispatch', 'loading'], ['KSA border', 'ksa'], ['Ghuwaifat border', 'ghu'], ['Warehouse delivery', 'wh'], ['Purchase entry', 'purchase'], ['Actual delivery date', 'delivered', 'd'], ['Temperature at booking (°C)', 'temp', 'n'], ['Reefer condition', 'reefer'], ['Temperature note', 'tempNote'], ['Invoice group (trucks on one invoice)', 'grp'], ['Remarks', 'remarks'],
     ['ETA (calculated)', 'eta', 'ro'], ['Position (calculated)', 'position', 'ro'], ['Alert (calculated)', 'alert', 'ro']];
   var C_RX = [['Key (keep for updates)', 'key', 'id'], ['Report month', 'month'], ['PI date', 'piDate', 'd'], ['PO no.', 'po'], ['PI no.', 'pi'], ['Invoice no(s).', 'invoice'], ['PO status', 'poStatus'], ['Origin country', 'country'], ['Stage', 'stage'],
     ['Supplier', 'supplier'], ['Shipper', 'shipper'], ['ETD', 'etd', 'd'], ['ATD', 'atd', 'd'], ['ETA', 'eta', 'd'], ['ATA', 'ata', 'd'], ['Arrival port', 'port'], ['First port', 'port1'], ['First port ETA', 'eta1', 'd'], ['First port ATA', 'ata1', 'd'],
@@ -723,7 +723,7 @@
     var itemsOk = o.items.length, Q = function (s) { return document.querySelector(s); };
     if (sc === 'eg') { var E2 = function (k) { return Q('#eform [data-e="' + k + '"]'); };
       set(E2('inv'), o.inv, 'Invoice no.'); set(E2('supplier'), o.supplier, 'Supplier'); set(E2('origin'), o.origin, 'Origin'); set(E2('brand'), o.brand, 'Brand'); set(E2('invAmt'), o.amount, 'Invoice amount');
-      set(E2('container'), o.conts[0], 'Container no.'); if (o.conts.length > 1) kept.push('More containers in the document: ' + o.conts.slice(1).join(', ') + ' (one container per Egypt entry)');
+      set(E2('container'), o.conts[0], 'Container no.'); if (o.conts.length > 1) { if (window.BSTEG && BSTEG.addTruck) { o.conts.slice(1).forEach(function (cn) { BSTEG.addTruck({ container: cn }); }); kept.push('Added ' + (o.conts.length - 1) + ' more truck(s) for containers ' + o.conts.slice(1).join(', ') + ': enter their trucks, drivers and products'); } else kept.push('More containers in the document: ' + o.conts.slice(1).join(', ')); }
       if (itemsOk) { var rows = [].slice.call(document.querySelectorAll('#eits .er')), filled = rows.filter(function (x) { return x.querySelector('.in').value.trim(); });
         if (!filled.length || confirm('Replace the ' + filled.length + ' item line(s) in the form with the ' + itemsOk + ' item(s) read from the document?')) {
           rows.forEach(function (x) { x.remove(); });

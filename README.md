@@ -136,3 +136,8 @@ One match shows the delivery status table and the movement timeline (newest firs
 ### Reefer check at purchase booking (Egypt)
 Marking a shipment **Purchase booked** (step button or form) asks for the **temperature (°C)**, the **reefer condition** (Reefer OK, Reefer Off, Reefer not working, Temperature confusion / unclear, Other reefer issue, Not a reefer (dry cargo)) and an optional note. The condition is required; the temperature is required unless it is dry cargo.
 Shown in: the dashboard panel *Reefer & temperature at booking* (counts, average / coldest / warmest, issues first), the supplier scorecard (*Reefer issues*), the Egypt report, the shipment details, Track shipment (under *Delivered to warehouse*) and the Excel export.
+
+### Several trucks / containers on one Egypt invoice
+In the Egypt form, section *3 · Trucks & containers* has **+ Add another truck / container on this invoice**. Each extra truck gets its own truck plate, container no., driver, mobile, freight amount and products (batch, CTN, pallets).
+On save every truck becomes its own shipment (own order no., pipeline card and step dates) linked by an invoice group (`grp`). Supplier, invoice no. / date, PO, brand, origin and supplier payment stay the same on every truck of the invoice; the invoice amount is kept once, on truck 1, so totals are not doubled, and the supplier payment is listed (and marked paid) once per invoice.
+Pipeline cards show *Truck 1/2*, the details view and Track shipment list all trucks of the invoice. A PDF invoice listing several containers adds the extra trucks automatically.

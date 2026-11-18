@@ -42,6 +42,16 @@
   var OWN = /al[\s-]?saih|baniyas|\bbst\b/i;
   function supName(s) { s = String(s || '').trim(); if (!s) return ''; return s === s.toUpperCase() ? s.toLowerCase().replace(/(^|[\s(\/&-])([a-z])/g, function (a, b, c) { return b + c.toUpperCase(); }) : s; }
 
+  // several trucks / containers on one invoice: each truck is its own shipment, linked by 'grp'
+  var SHARED = ['supplier', 'inv', 'invDate', 'poNo', 'poId', 'brand', 'origin', 'supPay', 'dSupPay', 'po', 'dPo'];
+  var JOURNEY = ['sched', 'loading', 'actual', 'ksa', 'dKsaArr', 'dKsa', 'ghu', 'dGhuArr', 'dGhu', 'wh', 'delivered', 'purchase', 'dPurchase'];
+  function groupOf(r) { if (!r || !r.grp || !window.E) return r && r.row ? [r] : []; return E.rows.filter(function (x) { return x.grp === r.grp; }).sort(function (a, b) { return (E.months.indexOf(a.month) - E.months.indexOf(b.month)) || num(a.sr) - num(b.sr); }); }
+  function isLead(r) { var g = groupOf(r); return !g.length || g[0] === r || g[0].row === r.row; }
+  function truckNo(r) { var g = groupOf(r); return g.length > 1 ? (g.indexOf(r) + 1) + '/' + g.length : ''; }
+  function amtOf(r) { var a = num(r.invAmt); if (a || !r.grp || !window.E) return a; E.rows.forEach(function (x) { if (x.grp === r.grp) a = Math.max(a, num(x.invAmt)); }); return a; }
+  function gsr(payload) { return new Promise(function (ok, no) { google.script.run.withSuccessHandler(ok).withFailureHandler(no).saveEgyptEntry(payload, window.APW); }); }
+  function syncShared(rows, v) { return rows.reduce(function (p, s) { var d = {}; SHARED.forEach(function (k) { if (v[k] !== undefined && String(s[k] == null ? '' : s[k]) !== String(v[k] == null ? '' : v[k])) d[k] = v[k]; });
+    return Object.keys(d).length ? p.then(function () { return gsr({ month: s.month, v: d, row: s.row, orig: { sr: s.sr, container: s.container, inv: s.inv } }); }) : p; }, Promise.resolve()); }
   // reefer condition recorded at purchase booking (with the temperature reading)
   var REEFER = ['Reefer OK', 'Reefer Off', 'Reefer not working', 'Temperature confusion / unclear', 'Other reefer issue', 'Not a reefer (dry cargo)'];
   function reeferBad(r) { return !!r.reefer && r.reefer !== 'Reefer OK' && r.reefer !== 'Not a reefer (dry cargo)'; }
@@ -53,7 +63,7 @@
   function isNew(r) { return !r || !r.row || (!!r.created && r.created >= CHECKS_FROM); }
   // ------------------------------------------------------------------ required to book the purchase (nothing is compulsory before that)
   function bookMissing(r) { var m = [], its = itemsOf(r), ctn = num(r.ctn) || its.reduce(function (a, i) { return a + num(i.c); }, 0);
-    if (!String(r.supplier || '').trim() || OWN.test(r.supplier)) m.push(['Supplier (Egypt)', 'order']); if (!r.inv) m.push(['Invoice no.', 'order']); if (!num(r.invAmt)) m.push(['Invoice amount', 'order']);
+    if (!String(r.supplier || '').trim() || OWN.test(r.supplier)) m.push(['Supplier (Egypt)', 'order']); if (!r.inv) m.push(['Invoice no.', 'order']); if (!amtOf(r)) m.push(['Invoice amount', 'order']);
     if (!its.length) m.push(['Products', 'items']); else if (!ctn) m.push(['CTN quantities', 'items']); if (!r.container) m.push(['Container no.', 'truck']); if (!r.vehicle) m.push(['Truck plate no.', 'truck']);
     if (!num(r.frAmt)) m.push(['Freight amount', 'pay']); if (!r.actual) m.push(['Dispatch date', 'trip']); if (!r.delivered) m.push(['Delivery date', 'trip']); return m; }
   // ------------------------------------------------------------------ checks ("needs fixing")
@@ -84,7 +94,7 @@
     var al = r.alert && s < 6 ? '<span class="egb ' + (late ? 'r' : /due/i.test(r.alert) ? 'o' : '') + '">' + esc(r.alert) + '</span>' : '';
     var nfix = checks(r).length;
     return '<div class="egc' + (late ? ' late' : '') + '"><div class="egc-m" data-ei="' + r._i + '" title="Open details"><div class="egc-t"><b>' + esc(ref(r)) + '</b>' + (r.container && r.vehicle ? '<span class="mu">' + esc(r.vehicle) + '</span>' : '') + '</div>' +
-      '<div class="egc-s">' + esc(supName(r.supplier) || 'Supplier not entered') + '</div><div class="mu">' + esc((its[0] && its[0].n) || '') + (its.length > 1 ? ' +' + (its.length - 1) : '') + (ctnOf(r) ? ' · ' + nf(ctnOf(r)) + ' CTN' : '') + '</div>' +
+      '<div class="egc-s">' + esc(supName(r.supplier) || 'Supplier not entered') + (truckNo(r) ? ' <span class="egb g" title="Trucks on this invoice">Truck ' + truckNo(r) + (r.inv ? ' · ' + esc(r.inv) : '') + '</span>' : '') + '</div><div class="mu">' + esc((its[0] && its[0].n) || '') + (its.length > 1 ? ' +' + (its.length - 1) : '') + (ctnOf(r) ? ' · ' + nf(ctnOf(r)) + ' CTN' : '') + '</div>' +
       '<div class="egc-f"><span class="mu">' + esc(when) + '</span>' + al + (nfix ? '<span class="egb w" title="Needs fixing">⚠ ' + nfix + '</span>' : '') + '</div></div>' +
       (can('egEdit') ? '<div class="egc-a">' + (s < 7 ? '<button type="button" class="p" data-egx="next" data-i="' + r._i + '">' + esc(STEP[s].b) + ' ▸</button>' : '') + '<button type="button" data-egx="edit" data-i="' + r._i + '" title="Edit">✎</button></div>' : '') + '</div>'; }
   var FOLD = (function () { try { return JSON.parse(localStorage.getItem('bst.egfold') || '{}') || {}; } catch (e) { return {}; } })();
@@ -98,7 +108,7 @@
     var road = all.filter(function (r) { var s = stg(r); return s === 1 || s === 3 || s === 5; }), border = all.filter(function (r) { var s = stg(r); return s === 2 || s === 4; });
     var over = all.filter(function (r) { return typeof isOver === 'function' && isOver(r); }), delS = sc.filter(function (r) { return stg(r) >= 6; });
     var ctnS = 0; sc.forEach(function (r) { ctnS += ctnOf(r); });
-    var supDue = all.filter(function (r) { return r.supPay !== 'Completed'; }), frDue = all.filter(function (r) { return stg(r) >= 1 && r.frPay !== 'Completed'; });
+    var supDue = all.filter(function (r) { return r.supPay !== 'Completed' && isLead(r); }), frDue = all.filter(function (r) { return stg(r) >= 1 && r.frPay !== 'Completed'; });
     var sum = function (l, k) { var t = 0; l.forEach(function (r) { t += num(r[k]); }); return t; };
     var fixes = []; all.forEach(function (r) { checks(r).forEach(function (c) { fixes.push({ r: r, c: c }); }); });
     var kpi = function (t, v, sub, cls, act) { return '<div class="egk ' + (cls || '') + '"' + (act ? ' data-egk="' + act + '"' : '') + '><span>' + t + '</span><b>' + v + '</b><em>' + (sub || '') + '</em></div>'; };
@@ -117,7 +127,7 @@
       '</div><div class="mu" style="margin-top:6px">Closed (purchase booked): ' + all.filter(function (r) { return stg(r) === 7; }).length + ' shipments.</div></div>';
     // payments + transit
     var payRow = function (r, kind) { var amt = kind === 'sup' ? r.invAmt : r.frAmt, st2 = kind === 'sup' ? r.supPay : r.frPay;
-      return '<tr><td><a data-ei="' + r._i + '"><b>' + esc(ref(r)) + '</b></a><div class="mu">' + esc(r.month) + ' · INV ' + esc(r.inv || '-') + '</div></td><td>' + esc(kind === 'sup' ? supName(r.supplier) || '-' : r.vehicle || '-') + '</td><td>' + esc(st2 || 'Unpaid') + '</td><td class="n">' + (num(amt) ? '$ ' + nf(amt) : '<span class="late">missing</span>') + '</td><td>' +
+      return '<tr><td><a data-ei="' + r._i + '"><b>' + esc(ref(r)) + '</b></a><div class="mu">' + esc(r.month) + ' · INV ' + esc(r.inv || '-') + (kind === 'sup' && groupOf(r).length > 1 ? ' · ' + groupOf(r).length + ' trucks' : '') + '</div></td><td>' + esc(kind === 'sup' ? supName(r.supplier) || '-' : r.vehicle || '-') + '</td><td>' + esc(st2 || 'Unpaid') + '</td><td class="n">' + (num(amt) ? '$ ' + nf(amt) : '<span class="late">missing</span>') + '</td><td>' +
         (can('egEdit') ? '<button type="button" class="sm" data-egx="paid" data-k="' + kind + '" data-i="' + r._i + '">Mark paid</button>' : '') + '</td></tr>'; };
     var payT = function (l, kind) { return l.length ? '<div class="tw"><table class="egtb egpay"><thead><tr><th>Shipment</th><th>' + (kind === 'sup' ? 'Supplier' : 'Truck') + '</th><th>Status</th><th class="n">Amount</th><th></th></tr></thead><tbody>' + l.map(function (r) { return payRow(r, kind); }).join('') +
       '</tbody><tfoot><tr><td colspan="3"><b>Total</b></td><td class="n"><b>$ ' + nf(sum(l, kind === 'sup' ? 'invAmt' : 'frAmt')) + '</b></td><td></td></tr></tfoot></table></div>' : '<div class="mu">All paid.</div>'; };
@@ -198,10 +208,12 @@
   function markPaid(r, kind) {
     var amtK = kind === 'sup' ? 'invAmt' : 'frAmt', body = '<label>Paid on<input type="date" id="egp-d" value="' + today() + '"></label><label>' + (kind === 'sup' ? 'Invoice amount to supplier ($)' : 'Freight amount ($)') + '<input type="number" min="0" step="any" id="egp-a" value="' + esc(r[amtK] || '') + '"></label>';
     modal((kind === 'sup' ? 'Supplier payment · ' : 'Freight payment · ') + esc(ref(r)), body, 'Mark as paid', function (m) { var v = {}, d = m.querySelector('#egp-d').value, a = m.querySelector('#egp-a').value;
-      if (!d) throw new Error('Enter the payment date.'); v[kind === 'sup' ? 'supPay' : 'frPay'] = 'Completed'; v[kind === 'sup' ? 'dSupPay' : 'dFrPay'] = d; if (a !== '') v[amtK] = a; return save(r, v); }); }
+      if (!d) throw new Error('Enter the payment date.'); v[kind === 'sup' ? 'supPay' : 'frPay'] = 'Completed'; v[kind === 'sup' ? 'dSupPay' : 'dFrPay'] = d; if (a !== '') v[amtK] = a;
+      if (kind === 'sup' && groupOf(r).length > 1) return gsr({ month: r.month, v: v, row: r.row, orig: { sr: r.sr, container: r.container, inv: r.inv } }).then(function () { return syncShared(groupOf(r).filter(function (x) { return x.row !== r.row; }), { supPay: 'Completed', dSupPay: d }); }).then(function () { loadEg(); });
+      return save(r, v); }); }
 
   // ------------------------------------------------------------------ entry form
-  var SEC = [['order', '1 · Order & invoice'], ['items', '2 · Products'], ['truck', '3 · Truck & container'], ['trip', '4 · Journey & dates'], ['pay', '5 · Payments & notes']];
+  var SEC = [['order', '1 · Order & invoice'], ['items', '2 · Products'], ['truck', '3 · Trucks & containers'], ['trip', '4 · Journey & dates'], ['pay', '5 · Payments & notes']];
   var STATUSROWS = [['Supplier PO', 'po', [['dPo', 'PO date']]], ['Loading & dispatch', 'loading', [['actual', 'Dispatched on']]], ['KSA border', 'ksa', [['dKsaArr', 'Arrived'], ['dKsa', 'Cleared']]],
     ['Ghuwaifat border (UAE)', 'ghu', [['dGhuArr', 'Arrived'], ['dGhu', 'Cleared']]], ['Warehouse delivery', 'wh', [['delivered', 'Delivered on']]], ['Purchase entry (system booking)', 'purchase', [['dPurchase', 'Booked on']]]];
   // a date implies a status; a finished status gets today's date if none
@@ -222,9 +234,10 @@
       inp('sr', 'Order no.', 'number', ' placeholder="auto"') + inp('supplier', 'Supplier (Egypt)', '', ' list="egf-sup" placeholder="e.g. Wega Foods"') + inp('inv', 'Invoice no.', '', ' placeholder="needed at purchase booking"') + inp('invDate', 'Invoice date', 'date') +
       inp('poNo', 'PO / schedule no.') + '<input type="hidden" data-e="poId" value="' + esc(val('poId')) + '">' + inp('brand', 'Brand') + inp('origin', 'Origin') + inp('sched', 'Planned loading date', 'date') + inp('invAmt', 'Invoice amount to supplier ($)', 'number') + '</div>' +
       '<datalist id="egf-sup">' + Object.keys(sups).sort().map(function (s) { return '<option value="' + esc(s) + '">'; }).join('') + '</datalist></div>' +
-      '<div class="egf-sec" id="egs-items"><h3>Products <button id="eai" type="button">+ Add product</button></h3><div id="eits"></div><div class="g" style="margin-top:10px">' + inp('ctn', 'Total CTN (auto)', 'number') + inp('pallets', 'Total pallets (auto)', 'number') + '</div></div>' +
-      '<div class="egf-sec" id="egs-truck"><h3>Truck & container</h3><div class="g">' + inp('vehicle', 'Truck plate no.', '', ' placeholder="e.g. 1481"') + '<label>Container no.<input data-e="container" value="' + esc(val('container')) + '" placeholder="e.g. 8253"></label>' +
-      inp('driver', 'Driver name') + inp('mobile', 'Driver mobile') + inp('frAmt', 'Freight amount ($)', 'number') + '</div></div>' +
+      '<div class="egf-sec" id="egs-items"><h3><span id="egx-p1">Products</span> <button id="eai" type="button">+ Add product</button></h3><div id="eits"></div><div class="g" style="margin-top:10px">' + inp('ctn', 'Total CTN (auto)', 'number') + inp('pallets', 'Total pallets (auto)', 'number') + '</div></div>' +
+      '<div class="egf-sec" id="egs-truck"><h3><span id="egx-t1">Truck & container</span></h3><input type="hidden" data-e="grp" value="' + esc(val('grp')) + '"><div class="g">' + inp('vehicle', 'Truck plate no.', '', ' placeholder="e.g. 1481"') + '<label>Container no.<input data-e="container" value="' + esc(val('container')) + '" placeholder="e.g. 8253"></label>' +
+      inp('driver', 'Driver name') + inp('mobile', 'Driver mobile') + inp('frAmt', 'Freight amount ($)', 'number') + '</div>' +
+      '<div id="egx-sibs"></div><div id="egx-list"></div><button type="button" class="egx-add" id="egx-add">+ Add another truck / container on this invoice</button></div>' +
       '<div class="egf-sec" id="egs-trip"><h3>Journey & dates <span class="mu">pick a status or type a date; the other fills itself</span></h3><div class="egj">' +
       STATUSROWS.map(function (x) { return '<div class="egj-r"><span class="egj-l">' + x[0] + '</span>' + sel(x[1]) + x[2].map(function (d) { return '<label class="egj-d">' + d[1] + '<input type="date" data-e="' + d[0] + '" value="' + esc(val(d[0])) + '"></label>'; }).join('') + '</div>'; }).join('') +
       '</div><div class="egj-rf"><span class="egj-l">Reefer check at booking</span><label class="egj-d">Temperature (°C)<input type="number" step="0.1" data-e="temp" value="' + esc(val('temp')) + '" placeholder="e.g. -18"></label><label class="egj-d">Reefer condition<select data-e="reefer">' + reeferOpts(val('reefer')) + '</select></label><label class="egj-d egj-w">Temperature note<input data-e="tempNote" value="' + esc(val('tempNote')) + '"></label></div>' +
@@ -241,6 +254,35 @@
     if (!r) { var og = fm.querySelector('[data-e="origin"]'); if (og && !og.value) og.value = 'Egypt'; }
     $('eai').onclick = function () { egAddItem(); };
     var Q = function (k) { return fm.querySelector('[data-e="' + k + '"]'); };
+    // ---- other trucks / containers on the same invoice
+    var gv = Q('grp').value, sibs = gv ? E.rows.filter(function (x) { return x.grp === gv && (!r || x.row !== r.row); }) : [];
+    function label() { var n = document.querySelectorAll('#egx-list .egx').length, k = 1;
+      var me = r ? groupOf(r).indexOf(r) + 1 || 1 : sibs.length + 1, many = sibs.length || n;
+      $('egx-t1').textContent = many ? 'Truck ' + me + ' · this shipment' : 'Truck & container'; $('egx-p1').textContent = many ? 'Products · truck ' + me : 'Products';
+      document.querySelectorAll('#egx-list .egx').forEach(function (c) { c.querySelector('.egx-n').textContent = 'Truck ' + (sibs.length + 1 + k++) + ' · new, same invoice'; }); }
+    if (sibs.length) $('egx-sibs').innerHTML = '<div class="egx-sib"><b>Also on this invoice:</b> ' + groupOf(sibs[0]).filter(function (x) { return !r || x.row !== r.row; }).map(function (x) { return '<button type="button" data-egxo="' + x._i + '">#' + esc(x.sr) + ' · ' + esc(x.container || x.vehicle || 'truck') + (x.driver ? ' · ' + esc(x.driver) : '') + '</button>'; }).join(' ') + '<div class="mu">Supplier, invoice, PO, brand, origin and supplier payment are kept the same on every truck of this invoice.</div></div>';
+    $('egx-sibs').onclick = function (e) { var b = e.target.closest('[data-egxo]'); if (!b) return; if (window.DIRTY && DIRTY.ov3 && !confirm('Leave this shipment without saving?')) return; if (window.DIRTY) DIRTY.ov3 = false; openForm(E.rows[Number(b.dataset.egxo)]); };
+    function addTruck(t) { t = t || {}; var c = document.createElement('div'); c.className = 'egx';
+      c.innerHTML = '<div class="egx-h"><b class="egx-n"></b><button type="button" class="egx-rm">Remove</button></div><div class="g"><label>Truck plate no.<input class="t-veh" placeholder="e.g. 1482"></label><label>Container no.<input class="t-cont" placeholder="e.g. 8254"></label><label>Driver name<input class="t-drv"></label><label>Driver mobile<input class="t-mob"></label><label>Freight amount ($)<input class="t-fr" type="number" min="0" step="any"></label></div>' +
+        '<div class="egx-it"><b>Products on this truck</b><div class="egx-its"></div><button type="button" class="egx-ai">+ Add product</button> <span class="mu egx-tot"></span></div>';
+      c.querySelector('.t-veh').value = t.vehicle || ''; c.querySelector('.t-cont').value = t.container || ''; c.querySelector('.t-drv').value = t.driver || ''; c.querySelector('.t-mob').value = t.mobile || ''; c.querySelector('.t-fr').value = t.frAmt || '';
+      var addIt = function (it) { egAddItem(it); var row = $('eits').lastElementChild; c.querySelector('.egx-its').appendChild(row); row.querySelector('.x').onclick = function () { row.remove(); tot(); }; };
+      var tot = function () { var n = 0, p = 0; c.querySelectorAll('.er').forEach(function (x) { n += num(x.querySelector('.ic').value); p += num(x.querySelector('.il').value); }); c.querySelector('.egx-tot').textContent = n ? 'Total ' + nf(n) + ' CTN' + (p ? ' · ' + nf(p) + ' pallets' : '') : ''; };
+      (t.items && t.items.length ? t.items : [{}]).forEach(addIt); c.querySelector('.egx-ai').onclick = function () { addIt(); };
+      c.addEventListener('input', tot); c.querySelector('.egx-rm').onclick = function () { c.remove(); label(); };
+      $('egx-list').appendChild(c); label(); tot(); if (window.DIRTY) DIRTY.ov3 = true; return c; }
+    $('egx-add').onclick = function () { addTruck().querySelector('.t-veh').focus(); };
+    function readExtras() { var out = [], bad = false; document.querySelectorAll('#egx-list .egx').forEach(function (c, i) {
+      var t = { vehicle: c.querySelector('.t-veh').value.trim(), container: c.querySelector('.t-cont').value.trim().toUpperCase().replace(/\s+/g, ''), driver: c.querySelector('.t-drv').value.trim(), mobile: c.querySelector('.t-mob').value.trim(), frAmt: c.querySelector('.t-fr').value.trim() };
+      var lines = [], bs = [], ct = 0, pl = 0; c.querySelectorAll('.er').forEach(function (x) { var n = x.querySelector('.in').value.trim(), p = x.querySelector('.ip').value.trim(), cc = x.querySelector('.ic').value.trim(), l = x.querySelector('.il').value.trim(), b = x.querySelector('.ib').value.trim().replace(/[\[\]]/g, '');
+        if (!n) return; lines.push(n + (p ? ' (' + p + ')' : '') + (cc ? ': ' + Number(cc).toLocaleString('en-US') + ' ctn' : '') + (l ? ' / ' + l + ' plt' : '') + (b ? ' [Batch: ' + b + ']' : '')); if (b && bs.indexOf(b) < 0) bs.push(b); ct += num(cc); pl += num(l); });
+      t.items = lines.join('\n'); t.batch = bs.join(', '); t.ctn = ct || ''; t.pallets = pl || '';
+      if (!t.vehicle && !t.container && !t.items) { bad = true; alert('Truck ' + (sibs.length + 2 + i) + ': enter the truck plate, container no. or products, or remove it.'); c.scrollIntoView(); } else out.push(t); });
+      return bad ? null : out; }
+    // trucks after the first show the invoice amount kept on truck 1
+    if (r && sibs.length && !isLead(r) && Q('invAmt') && !Q('invAmt').value && amtOf(r)) { Q('invAmt').value = amtOf(r); Q('invAmt').title = 'Whole invoice (kept on truck 1)'; }
+    label();
+    window.BSTEG.addTruck = function (t) { if ($('egx-list')) return addTruck(t); };
     var ci = function () {};
     var live = function () { if (!isNew(r)) { $('egf-chk').innerHTML = '<span class="mu">Past shipment (entered before 17 Nov 2026, 1:30 pm): no checks are applied.</span>'; return; } var v = collect(true), l = checks(Object.assign({ position: posOf(v) }, v)); $('egf-chk').innerHTML = l.length ? '<b>Checks</b>' + l.map(function (c) { return '<div class="' + c.lvl + '">' + (c.lvl === 'e' ? '✖ ' : '⚠ ') + esc(c.m) + '</div>'; }).join('') : '<b>✓ Checks passed</b>'; };
     fm.oninput = function (e) { var t = e.target; if (t.dataset.e === 'container') ci(); clearTimeout(fm._t); fm._t = setTimeout(live, 250); };
@@ -262,11 +304,21 @@
       if (!v.items && !v.container && !v.supplier) { alert('Enter at least one product, the container number or the supplier.'); return; }
       if (v.actual && v.delivered && v.delivered < v.actual) { alert('The delivery date is before the dispatch date.'); $('egs-trip').scrollIntoView(); return; }
       if (!r && !v.sr) delete v.sr;
+      var extras = readExtras(); if (extras === null) return;
+      var gid = v.grp || ((extras.length || sibs.length) ? 'G' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6) : ''); if (gid) v.grp = gid;
+      // the invoice amount is kept once per invoice, on its first truck
+      var members = sibs.concat(r ? [r] : []).sort(function (a, b) { return (E.months.indexOf(a.month) - E.months.indexOf(b.month)) || num(a.sr) - num(b.sr); }), lead = members[0], amt = v.invAmt, toLead = null;
+      if (lead && (!r || lead.row !== r.row)) { v.invAmt = ''; if (amt !== '' && num(amt) !== num(lead.invAmt)) toLead = lead; }
       $('esv').disabled = true; $('esv').textContent = 'Saving…';
-      google.script.run.withSuccessHandler(function (x) { if (window.DIRTY) DIRTY.ov3 = false; hide('ov3'); hide('ov2'); month = m; $('msg').textContent = (r ? 'Updated in ' : 'Saved to ') + m + '.';
-        if (pre && pre.poId && window.BST) BST.call('linkPO', pre.poId, { ref: x && x.row || '', label: (v.inv || '') + (v.container ? ' · ' + v.container : ''), month: m }).catch(function () {}); loadEg(); })
-        .withFailureHandler(function (e) { $('esv').disabled = false; $('esv').textContent = r ? 'Save changes' : 'Save shipment'; alert(e.message); })
-        .saveEgyptEntry({ month: m, v: v, row: r && r.row, orig: r ? { sr: r.sr, container: r.container, inv: r.inv } : undefined }, window.APW); };
+      var first = null;
+      gsr({ month: m, v: v, row: r && r.row, orig: r ? { sr: r.sr, container: r.container, inv: r.inv } : undefined }).then(function (x) { first = x;
+        if (toLead) return gsr({ month: toLead.month, v: { invAmt: amt }, row: toLead.row, orig: { sr: toLead.sr, container: toLead.container, inv: toLead.inv } }); })
+      .then(function () { return syncShared(sibs, v); })
+      .then(function () { return extras.reduce(function (p, t) { var nv = { grp: gid, invAmt: '', origin: v.origin }; SHARED.concat(JOURNEY, ['temp', 'reefer', 'tempNote', 'remarks']).forEach(function (k) { if (v[k] !== undefined) nv[k] = v[k]; });
+          Object.keys(t).forEach(function (k) { nv[k] = t[k]; }); nv.invAmt = ''; return p.then(function () { return gsr({ month: m, v: nv }); }); }, Promise.resolve()); })
+      .then(function () { if (window.DIRTY) DIRTY.ov3 = false; hide('ov3'); hide('ov2'); month = m; $('msg').textContent = (r ? 'Updated in ' : 'Saved to ') + m + (extras.length ? ' with ' + extras.length + ' more truck(s) on the same invoice' : '') + '.';
+        if (pre && pre.poId && window.BST) BST.call('linkPO', pre.poId, { ref: first && first.row || '', label: (v.inv || '') + (v.container ? ' · ' + v.container : ''), month: m }).catch(function () {}); loadEg(); },
+      function (e) { $('esv').disabled = false; $('esv').textContent = r ? 'Save changes' : 'Save shipment'; alert(e.message || e); loadEg(); }); };
     if (r) $('edel').onclick = function () { if (!confirm('Delete shipment ' + ref(r) + ' from ' + r.month + '? This cannot be undone.')) return;
       google.script.run.withSuccessHandler(function () { if (window.DIRTY) DIRTY.ov3 = false; hide('ov3'); hide('ov2'); $('msg').textContent = 'Deleted from ' + r.month + '.'; loadEg(); }).withFailureHandler(function (e) { alert(e.message); }).deleteEgyptEntry({ month: r.month, row: r.row, orig: { sr: r.sr, container: r.container, inv: r.inv } }, window.APW); };
     ci(); live(); show('ov3');
@@ -316,6 +368,7 @@
     '#egdash{margin-bottom:12px}.egh{display:flex;justify-content:space-between;align-items:flex-end;gap:10px;flex-wrap:wrap;margin:4px 0 12px}.egh h2{margin:0;font-size:20px}.egh-b{display:flex;gap:8px;flex-wrap:wrap}.warnb{border-color:#f0c43c;background:#fff8e1}',
     '.egks{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:12px}.egk{background:#fff;border:1px solid var(--bd);border-left:4px solid #8a94a6;border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;gap:2px;cursor:pointer;min-width:0}.egk span{font-size:12px;color:var(--mu);font-weight:600}.egk b{font-size:24px;line-height:1.1}.egk em{font-style:normal;font-size:12px;color:var(--mu);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
     '.egk.b{border-left-color:var(--bl)}.egk.o{border-left-color:var(--wa)}.egk.r{border-left-color:var(--er)}.egk.r b{color:var(--er)}.egk.g{border-left-color:var(--ac)}.egk:hover{box-shadow:0 2px 10px rgba(0,0,0,.06)}',
+    '.egx-sib{margin-top:12px;padding:10px;border-radius:10px;background:#f6f8fa;font-size:13px}.egx-sib button{margin:4px 4px 0 0;font-size:12px;padding:5px 10px;border-radius:999px}.egx{margin-top:12px;border:1px dashed var(--ac);border-radius:12px;padding:10px 12px;background:#fbfefc}.egx-h{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}.egx-h b{color:var(--acd)}.egx-rm{font-size:12px;padding:4px 10px}.egx-it{margin-top:10px}.egx-it>b{font-size:13px}.egx-its{margin:6px 0}.egx-ai{font-size:12px;padding:5px 10px}.egx-add{margin-top:12px;width:100%;border:1px dashed var(--ac);background:#f3faf6;color:var(--acd);font-weight:600;padding:10px;border-radius:10px}.egb.g{background:#e3f6ec;color:var(--acd)}' +
     '.egm-rf{margin-top:12px;padding:10px;border:1px solid #cfe9da;border-radius:10px;background:#f3faf6}.egm-rf>b{font-size:13px}.egj-rf{display:grid;grid-template-columns:minmax(150px,1.2fr) minmax(120px,1fr) minmax(150px,1fr) minmax(200px,1.6fr);gap:8px;align-items:end;padding:8px 6px;margin-top:4px;background:#f3faf6;border-radius:8px}' +
     '.egrf-s{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}.egrf-bad td{background:#fff4f4}.chip.cr{background:#fde8e8;color:var(--er)}.egtb td.late{color:var(--er);font-weight:700}' +
     '[data-egtg]{cursor:pointer;user-select:none}.egar{display:inline-flex;width:20px;height:20px;align-items:center;justify-content:center;border-radius:6px;background:#eef6f1;color:var(--acd);font-size:12px;margin-right:6px;flex:none}[data-egtg]:hover .egar{background:var(--ac);color:#fff}' +
@@ -364,6 +417,7 @@
   if (typeof window.renderEg === 'function') { var oRender = window.renderEg; window.renderEg = function () { var x = oRender.apply(this, arguments); try { setup(); render(); } catch (e) { console.error(e); } return x; }; }
   if (typeof window.egDetail === 'function') { var oDet = window.egDetail; window.egDetail = function (r) { var x = oDet.apply(this, arguments);
     try { var hb = [].filter.call(document.querySelectorAll('#dt b'), function (b) { return b.textContent === 'Milestones'; })[0]; if (hb && r) { hb.textContent = 'Journey'; hb.parentNode.querySelector('.ms').outerHTML = timeline(r); }
+      var g = groupOf(r); if (g.length > 1) { var tl = document.querySelector('#dt .egtl'); if (tl) tl.insertAdjacentHTML('beforebegin', '<div class="egx-sib" style="margin:6px 0"><b>Invoice ' + esc(r.inv || '') + ' · ' + g.length + ' trucks:</b> ' + g.map(function (x, i) { return '<span class="chip' + (x === r ? ' cg' : '') + '">Truck ' + (i + 1) + ' · ' + esc(x.container || x.vehicle || '#' + x.sr) + (x.driver ? ' · ' + esc(x.driver) : '') + ' · ' + esc(x.position || '') + '</span>'; }).join(' ') + '</div>'); }
       var kvb = [].filter.call(document.querySelectorAll('#dt .kv span'), function (s) { return s.textContent === 'Vehicle'; })[0]; if (kvb) kvb.textContent = 'Truck plate no.';
       var kc = [].filter.call(document.querySelectorAll('#dt .kv span'), function (s) { return s.textContent === 'Total CTN'; })[0]; if (kc && r && kc.nextElementSibling && kc.nextElementSibling.textContent.trim() === '-' && ctnOf(r)) kc.nextElementSibling.textContent = nf(ctnOf(r)); } catch (e) {} return x; }; }
   window.BSTEG = { checks: checks, stage: stg, isoOk: isoOk, render: render };

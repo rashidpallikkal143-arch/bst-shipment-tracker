@@ -25,7 +25,9 @@
     // the date each step happened (stamped by the Egypt pipeline; editable)
     'invDate', 'dPo', 'dSupPay', 'dFrPay', 'dKsaArr', 'dKsa', 'dGhuArr', 'dGhu', 'dPurchase',
     // reefer check when the purchase is booked
-    'temp', 'reefer', 'tempNote'];
+    'temp', 'reefer', 'tempNote',
+    // trucks / containers that share one invoice
+    'grp'];
   var EG_NUM = { sr: 1, ctn: 1, pallets: 1, invAmt: 1, frAmt: 1, temp: 1 };
   var INSP_KEYS = ['id', 'ref', 'invoice', 'level', 'product', 'status', 'authority', 'date', 'result', 'clearance', 'clearDate', 'action', 'owner', 'due', 'remarks', 'updated', 'by'];
   var MX_KEYS = ['id', 'month', 'container', 'inv', 'invDate', 'desc', 'amount', 'paid', 'status', 'payDate', 'mode', 'ref', 'due', 'remarks', 'updated'];
