@@ -1,6 +1,6 @@
 /* BST Shipment Tracker service worker: keeps the app opening fast and offline. Live data always comes from Firebase. */
-const CACHE = 'bst-tracker-v34';
-const SHELL = ['./', 'index.html', 'js/config.js', 'js/backend.js', 'js/app-ui.js', 'js/realmap.js', 'js/egypt.js', 'js/track.js', 'js/pdfread.js', 'js/extras.js', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png'];
+const CACHE = 'bst-tracker-v35';
+const SHELL = ['./', 'index.html', 'js/config.js', 'js/backend.js', 'js/app-ui.js', 'js/realmap.js', 'js/egypt.js', 'js/track.js', 'js/products.js', 'js/pdfread.js', 'js/extras.js', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting())); });
 self.addEventListener('activate', e => { e.waitUntil(caches.keys().then(k => Promise.all(k.filter(x => x !== CACHE).map(x => caches.delete(x)))).then(() => self.clients.claim())); });
 self.addEventListener('fetch', e => {

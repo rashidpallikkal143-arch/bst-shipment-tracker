@@ -26,6 +26,7 @@ async function main() {
     matex: await all(collection(db, 'matex'), 'Matex payments (backup-bot needs "Matex payments: view")') };
   out.po = (await all(query(collection(db, 'po'), where('sc', '==', 'eg')), 'Egypt purchase orders').catch(() => [])).concat(await all(query(collection(db, 'po'), where('sc', '==', 'rx')), 'Global purchase orders').catch(() => []));
   // users, rights and history are saved for the record (passwords are never included; Import does not change users)
+  out.products = await all(collection(db, 'products'), 'product list').catch(e => { console.log('Note: products not included (' + e.message + ')'); return []; });
   out.users = await all(collection(db, 'users'), 'users').catch(e => { console.log('Note: users not included (' + e.message + ')'); return []; });
   out.activity = await all(collection(db, 'activity'), 'activity').catch(e => { console.log('Note: activity history not included (' + e.message + ')'); return []; });
   fs.writeFileSync(OUT, JSON.stringify(out, null, 1));

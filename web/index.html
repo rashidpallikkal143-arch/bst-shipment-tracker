@@ -848,9 +848,9 @@ function egCols(){var m=$('ef-m').value,cols=((E.cols&&E.cols[m])||[]).concat(['
  var sr=document.querySelector('#eform [data-e="sr"]');if(sr&&!sr.dataset.man)sr.value=mx+1;var og=document.querySelector('#eform [data-e="origin"]');if(og&&!og.value&&!EGEDIT)og.value='Egypt'}
 function egOpt(k,v){var l=((E.lists&&E.lists[k])||[]).slice();if(v&&l.indexOf(v)<0)l.push(v);return opts(l,v)}
 function egParseItems(t){return String(t||'').split('\n').map(function(x){return x.trim()}).filter(Boolean).map(function(x){
- var bm=/\s*\[\s*batch\s*:?\s*([^\]]*)\]\s*$/i.exec(x),b=bm?bm[1].trim():'';if(bm)x=x.slice(0,bm.index);
+ var b='',bc='',bm;while((bm=/\s*\[\s*(batch|barcode)\s*:?\s*([^\]]*)\]\s*$/i.exec(x))){if(/batch/i.test(bm[1]))b=bm[2].trim();else bc=bm[2].trim();x=x.slice(0,bm.index)}
  var m=/^(.*?)\s*(?:\(([^)]*)\))?\s*(?::\s*([\d,.]+)\s*ctn)?\s*(?:\/\s*([\d,.]+)\s*plt)?\s*$/i.exec(x);
- if(!m||!m[1])return {n:x,b:b};return {n:m[1].trim(),p:m[2]||'',c:m[3]?m[3].replace(/,/g,''):'',l:m[4]?m[4].replace(/,/g,''):'',b:b}})}
+ if(!m||!m[1])return {n:x,b:b,bc:bc};return {n:m[1].trim(),p:m[2]||'',c:m[3]?m[3].replace(/,/g,''):'',l:m[4]?m[4].replace(/,/g,''):'',b:b,bc:bc}})}
 function openEg(r,pre){if(!E){alert('Egypt data is still loading.');return}r=(r&&r.month)?r:null;pre=r?null:(pre||null);EGEDIT=r;EITEMS=!!pre;
  var cur=r?r.month:((pre&&pre.month&&E.months.indexOf(pre.month)>=0?pre.month:(month!=='ALL'?month:E.months[E.months.length-1]))||''),val=function(k){var o=r||pre;return o&&o[k]!=null?o[k]:''};
  $('eform').innerHTML='<div style="display:flex;justify-content:space-between;align-items:center"><h2 style="margin:0;font-size:17px">'+(r?'Edit container entry (Egypt) · '+esc(r.month)+' · #'+esc(r.sr):pre?'New container entry from '+esc(pre.poNo||'purchase order'):'New container entry (Egypt)')+'</h2><button data-x="ov3" type="button">Close</button></div>'
@@ -1027,7 +1027,7 @@ $('add').onclick=function(){openEdit(null)};$('cx').onclick=function(){closeForm
 ['q','fs','fp'].forEach(function(i){$(i).addEventListener('input',renderRxReport)});$('rs').addEventListener('change',renderRxReport);
 $('rd').onclick=function(){rDir=-rDir;this.textContent=rDir>0?'↑ Asc':'↓ Desc';renderRxReport()};
 $('sv').onclick=function(){var s={items:[]};document.querySelectorAll('#f [data-k]').forEach(function(e){s[e.dataset.k]=e.value.trim()});
- document.querySelectorAll('.ir').forEach(function(d){s.items.push({desc:d.querySelector('.d').value.trim(),qty:d.querySelector('.q').value.trim(),unit:d.querySelector('.u').value,remarks:d.querySelector('.r').value.trim(),inv:d.querySelector('.iinv').value})});
+ document.querySelectorAll('.ir').forEach(function(d){s.items.push({desc:d.querySelector('.d').value.trim(),qty:d.querySelector('.q').value.trim(),unit:d.querySelector('.u').value,remarks:d.querySelector('.r').value.trim(),inv:d.querySelector('.iinv').value,barcode:d.querySelector('.ibc')?d.querySelector('.ibc').value.trim():'',batch:d.querySelector('.ibt')?d.querySelector('.ibt').value.trim():''})});
  var il=invList(),dup=il.filter(function(x,i){return il.indexOf(x)!==i});if(dup.length){alert('Invoice '+dup[0]+' is entered twice.');return}
  s.invoice=il.join(', ');
  var cs=[];document.querySelectorAll('#cns .cnr').forEach(function(d){var n=d.querySelector('.cno').value.trim();if(n)cs.push({no:n,size:d.querySelector('.cz').value,seal:d.querySelector('.cs').value.trim(),remarks:d.querySelector('.cm').value.trim()})});
@@ -1126,6 +1126,7 @@ $('hm-lock').onclick=function(){if(!confirm('Forget the saved section passwords 
 <script src="js/realmap.js"></script>
 <script src="js/egypt.js"></script>
 <script src="js/track.js"></script>
+<script src="js/products.js"></script>
 <script src="js/pdfread.js"></script>
 <script src="js/extras.js"></script>
 <script>if('serviceWorker' in navigator&&location.protocol==='https:')navigator.serviceWorker.register('sw.js').catch(function(){});</script>

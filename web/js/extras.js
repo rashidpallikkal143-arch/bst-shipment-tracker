@@ -71,7 +71,7 @@
   // section toolbars
   function bars() {
     ['eg', 'rx'].forEach(function (sc) { var sec = $(sc); if (!sec || sec.querySelector('.xbar')) return; var ms = sec.querySelector('.msel'); if (!ms) return;
-      ms.insertAdjacentHTML('afterend', '<div class="xbar noprint" data-sc="' + sc + '"><button type="button" class="xtrk" data-xtrk>🔎 Track shipment</button><button type="button" data-xpo="' + sc + '">📋 Purchase orders / schedules<b class="xn" id="xn-' + sc + '" style="display:none"></b></button>' +
+      ms.insertAdjacentHTML('afterend', '<div class="xbar noprint" data-sc="' + sc + '"><button type="button" class="xtrk" data-xtrk>🔎 Track shipment</button><button type="button" data-xprod>🏷 Products & barcodes</button><button type="button" data-xpo="' + sc + '">📋 Purchase orders / schedules<b class="xn" id="xn-' + sc + '" style="display:none"></b></button>' +
         '<button type="button" data-xxl="' + sc + '">📊 Excel import / export</button><button type="button" data-xrp="' + sc + '">📄 Summary report (PDF / print)</button></div>'); });
   }
   bars();
@@ -221,7 +221,7 @@
     ['Supplier', 'supplier'], ['Shipper', 'shipper'], ['ETD', 'etd', 'd'], ['ATD', 'atd', 'd'], ['ETA', 'eta', 'd'], ['ATA', 'ata', 'd'], ['Arrival port', 'port'], ['First port', 'port1'], ['First port ETA', 'eta1', 'd'], ['First port ATA', 'ata1', 'd'],
     ['Free time start', 'freeStart', 'd'], ['Free time end', 'freeEnd', 'd'], ['Payment stage', 'payment'], ['Warehouse delivery date', 'whDate', 'd'], ['Shipping line', 'line'], ['Vessel', 'vessel'], ['Vessel IMO', 'imo'], ['Vessel MMSI', 'mmsi'],
     ['Voyage', 'voyage'], ['B/L no.', 'bl'], ['Remarks', 'remarks'], ['Containers (count)', 'contQty', 'ro'], ['Container nos.', 'ref', 'ro']];
-  var C_RXI = [['Shipment key / PO / invoice', 'key'], ['Item description', 'desc'], ['Qty', 'qty', 'n'], ['Unit', 'unit'], ['Invoice', 'inv'], ['Remarks', 'remarks']];
+  var C_RXI = [['Shipment key / PO / invoice', 'key'], ['Item description', 'desc'], ['Qty', 'qty', 'n'], ['Unit', 'unit'], ['Invoice', 'inv'], ['Barcode', 'barcode'], ['Batch', 'batch'], ['Remarks', 'remarks']];
   var C_RXC = [['Shipment key / PO / invoice', 'key'], ['Container / AWB / truck no.', 'no'], ['Size', 'size'], ['Seal no.', 'seal'], ['Remarks', 'remarks']];
   var C_IN = [['ID (keep for updates)', 'id', 'id'], ['Reference (container / shipment)', 'ref'], ['Invoice no.', 'invoice'], ['Level', 'level'], ['Product', 'product'], ['Status', 'status'], ['Authority', 'authority'], ['Inspection date', 'date', 'd'],
     ['Result', 'result'], ['Clearance', 'clearance'], ['Clearance date', 'clearDate', 'd'], ['Action needed', 'action'], ['Owner', 'owner'], ['Due date', 'due', 'd'], ['Remarks', 'remarks'], ['Last updated', 'updated', 'ro']];
@@ -582,7 +582,7 @@
   function egDate(r, k) { var d = k === 'disp' ? (r.actual || r.sched) : k === 'arr' ? r.eta : k === 'del' ? r.delivered : (r.actual || r.sched || r.eta || r.delivered); return String(d || '').slice(0, 10); }
   function rxDate(s, k) { var d = k === 'disp' ? (s.atd || s.etd || s.piDate) : k === 'arr' ? (s.ata || s.eta) : k === 'del' ? s.whDate : (s.atd || s.etd || s.ata || s.eta || s.whDate || s.piDate); return String(d || '').slice(0, 10); }
   var RXDONE = ['Delivered to warehouse', 'Purchase not booked', 'Purchase booked'];
-  function egItems(t) { return String(t || '').split('\n').map(function (x) { return x.trim(); }).filter(Boolean).map(function (x) { var bm = /\s*\[\s*batch\s*:?\s*([^\]]*)\]\s*$/i.exec(x), b = bm ? bm[1].trim() : ''; if (bm) x = x.slice(0, bm.index); var m = /^(.*?)\s*(?:\(([^)]*)\))?\s*(?::\s*([\d,.]+)\s*ctn)?\s*(?:\/\s*([\d,.]+)\s*plt)?\s*$/i.exec(x) || [];
+  function egItems(t) { return String(t || '').split('\n').map(function (x) { return x.trim(); }).filter(Boolean).map(function (x) { var b = '', bm; while ((bm = /\s*\[\s*(batch|barcode)\s*:?\s*([^\]]*)\]\s*$/i.exec(x))) { if (/batch/i.test(bm[1])) b = bm[2].trim(); x = x.slice(0, bm.index); } var m = /^(.*?)\s*(?:\(([^)]*)\))?\s*(?::\s*([\d,.]+)\s*ctn)?\s*(?:\/\s*([\d,.]+)\s*plt)?\s*$/i.exec(x) || [];
     return { n: (m[1] || x).trim(), p: m[2] || '', c: num((m[3] || '').replace(/,/g, '')), l: num((m[4] || '').replace(/,/g, '')), b: b }; }); }
   function egCtn(r) { if (num(r.ctn)) return num(r.ctn); var c = 0; egItems(r.items).forEach(function (i) { c += i.c; }); return c; }
   function egPlt(r) { if (num(r.pallets)) return num(r.pallets); var c = 0; egItems(r.items).forEach(function (i) { c += i.l; }); return c; }

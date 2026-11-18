@@ -91,6 +91,13 @@ service cloud.firestore {
     }
 
     // Purchase orders / schedules (sc = 'eg' or 'rx'); the backup user may read them
+    // product master: barcode -> product details
+    match /products/{id} {
+      allow read: if can('egView') || can('gView') || can('settings') || isUser('backup-bot');
+      allow create, update: if can('egEdit') || can('gEdit') || can('settings');
+      allow delete: if can('egDel') || can('gDel') || can('settings');
+    }
+
     match /po/{id} {
       allow read: if (resource.data.sc == 'eg' && (can('egView') || isUser('backup-bot'))) || (resource.data.sc == 'rx' && (can('gView') || isUser('backup-bot')));
       allow create, update: if (request.resource.data.sc == 'eg' && (can('egEdit') || can('settings'))) || (request.resource.data.sc == 'rx' && (can('gEdit') || can('settings')));

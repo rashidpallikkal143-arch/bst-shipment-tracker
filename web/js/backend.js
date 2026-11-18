@@ -244,7 +244,7 @@
   API.getData = function () { need('gView'); return Promise.all([loadSettings(), S.db.all('rx')]).then(function (x) {
     var shipments = [], items = [], containers = [];
     x[1].forEach(function (d) { var o = {}; RX_KEYS.forEach(function (k) { o[k] = s_(d[k]); }); o.key = rxKey(o); if (!o.key) return; o._doc = d._id; shipments.push(o);
-      (d.items || []).forEach(function (i) { items.push({ invoice: o.key, desc: s_(i.desc), qty: s_(i.qty), unit: s_(i.unit), remarks: s_(i.remarks), inv: s_(i.inv) }); });
+      (d.items || []).forEach(function (i) { items.push({ invoice: o.key, desc: s_(i.desc), qty: s_(i.qty), unit: s_(i.unit), remarks: s_(i.remarks), inv: s_(i.inv), barcode: s_(i.barcode), batch: s_(i.batch) }); });
       (d.containers || []).forEach(function (c) { containers.push({ key: o.key, no: s_(c.no), size: s_(c.size), seal: s_(c.seal), remarks: s_(c.remarks) }); }); });
     var r = SET.rx;
     return { track: SET.track, liveApi: true, stages: r.stages, sizes: r.sizes, units: r.units, payments: r.payments, shipments: shipments, items: items, containers: containers, today: today(), url: '' }; }); };
@@ -257,7 +257,7 @@
       if (key !== newKey) { var dup = findRx(docs, newKey); if (dup && (!cur || dup._id !== cur._id)) throw err('A shipment with this reference already exists'); }
       if (!cur && !oldKey) { var d2 = findRx(docs, newKey); if (d2) throw err('A shipment with this reference already exists'); }
       var data = {}; RX_KEYS.forEach(function (k) { data[k] = s_(s[k]); });
-      data.items = (s.items || []).filter(function (i) { return i.desc || i.qty; }).map(function (i) { return { desc: s_(i.desc), qty: s_(i.qty), unit: s_(i.unit), remarks: s_(i.remarks), inv: s_(i.inv) }; });
+      data.items = (s.items || []).filter(function (i) { return i.desc || i.qty; }).map(function (i) { return { desc: s_(i.desc), qty: s_(i.qty), unit: s_(i.unit), remarks: s_(i.remarks), inv: s_(i.inv), barcode: s_(i.barcode), batch: s_(i.batch) }; });
       data.containers = (s.containers || []).filter(function (c) { return String(c.no || '').trim(); }).map(function (c) { return { no: s_(c.no).trim(), size: s_(c.size), seal: s_(c.seal), remarks: s_(c.remarks) }; });
       data.updated = today(); data.by = ME.userId || '';
       var id = cur ? cur._id : genId('S'); if (!cur) { data.created = new Date().toISOString(); data.createdBy = ME.userId || ''; } else { data.created = cur.created || ''; data.createdBy = cur.createdBy || cur.by || ''; }
@@ -301,6 +301,19 @@
       if (cur) { data.links = cur.links || []; data.created = cur.created || ''; data.createdBy = cur.createdBy || ''; if (cur.fromEg) data.fromEg = cur.fromEg; }
       else { data.links = []; data.created = data.updated; data.createdBy = ME.userId || ''; }
       return S.db.set('po', id, data).then(function () { return id; }); }); };
+  // ------------------------------------------------------------------ product master (barcode -> product details)
+  var PROD_KEYS = ['barcode', 'name', 'pack', 'brand', 'origin', 'supplier', 'unit', 'ctnPal', 'hs', 'sec', 'remarks'];
+  var prodId = function (bc) { return 'B' + String(bc || '').trim().replace(/[^A-Za-z0-9]/g, ''); };
+  var prodCan = function (k) { var r = { view: ['egView', 'gView'], edit: ['egEdit', 'gEdit'], del: ['egDel', 'gDel'] }[k]; if (!r.some(can) && !can('settings')) throw err('You do not have the right to do this.'); };
+  var prodData = function (o) { var d = {}; PROD_KEYS.forEach(function (k) { d[k] = s_(o[k]).trim(); }); d.barcode = d.barcode.replace(/\s+/g, ''); if (!d.barcode) throw err('Enter the barcode.'); if (!d.name) throw err('Enter the product name (' + d.barcode + ').'); d.updated = new Date().toISOString(); d.by = ME.userId || ''; return d; };
+  API.getProducts = function () { prodCan('view'); return S.db.all('products').then(function (l) { return l.map(function (d) { var o = { id: d._id }; PROD_KEYS.forEach(function (k) { o[k] = s_(d[k]); }); o.updated = s_(d.updated); return o; })
+    .sort(function (a, b) { return a.name.localeCompare(b.name); }); }); };
+  API.saveProduct = function (o, oldBarcode) { prodCan('edit'); var d = prodData(o), id = prodId(d.barcode), oid = oldBarcode ? prodId(oldBarcode) : '';
+    return S.db.get('products', id).then(function (cur) { if (cur && id !== oid) throw err('Barcode ' + d.barcode + ' is already in the product list (' + s_(cur.name) + ').');
+      return S.db.set('products', id, d).then(function () { return oid && oid !== id ? S.db.del('products', oid) : null; }).then(function () { return id; }); }); };
+  API.deleteProduct = function (barcode) { prodCan('del'); return S.db.del('products', prodId(barcode)).then(function () { return true; }); };
+  API.importProducts = function (list) { prodCan('edit'); var ops = [], seen = {}; (list || []).forEach(function (o) { var d = prodData(o), id = prodId(d.barcode); if (seen[id]) return; seen[id] = 1; ops.push({ op: 'set', col: 'products', id: id, data: d }); });
+    return S.db.batch(ops).then(function () { return ops.length; }); };
   API.deletePO = function (id) { return S.db.get('po', id).then(function (d) { if (!d) return true; poRight(d.sc, 'del'); return S.db.del('po', id).then(function () { return true; }); }); };
   // a shipment / container entry was made from this PO
   API.linkPO = function (id, link) { return S.db.get('po', id).then(function (d) { if (!d) throw err('This purchase order no longer exists.'); poRight(d.sc, 'edit');
@@ -441,7 +454,7 @@
     (e.rows || []).forEach(function (r) { var d = { month: r.month }; EG_KEYS.forEach(function (k) { if (r[k] !== undefined && r[k] !== '') d[k] = EG_NUM[k] ? Number(r[k]) : s_(r[k]); });
       if (!r.sched && !r.actual && r.eta) d.etaManual = s_(r.eta); out.eg.push(d); });
     (g.shipments || []).forEach(function (s) { var d = {}; RX_KEYS.forEach(function (k) { d[k] = s_(s[k]); }); var key = rxKey(d);
-      d.items = (g.items || []).filter(function (i) { return s_(i.invoice) === key; }).map(function (i) { return { desc: s_(i.desc), qty: s_(i.qty), unit: s_(i.unit), remarks: s_(i.remarks), inv: s_(i.inv) }; });
+      d.items = (g.items || []).filter(function (i) { return s_(i.invoice) === key; }).map(function (i) { return { desc: s_(i.desc), qty: s_(i.qty), unit: s_(i.unit), remarks: s_(i.remarks), inv: s_(i.inv), barcode: s_(i.barcode), batch: s_(i.batch) }; });
       d.containers = (g.containers || []).filter(function (c) { return s_(c.key) === key; }).map(function (c) { return { no: s_(c.no), size: s_(c.size), seal: s_(c.seal), remarks: s_(c.remarks) }; });
       if (!d.containers.length && d.ref) d.containers = d.ref.split(/\s*[,;\n]\s*/).filter(Boolean).map(function (n) { return { no: n, size: d.contSize, seal: '', remarks: '' }; });
       out.rx.push(d); });
@@ -458,11 +471,12 @@
       (x.insp || []).forEach(function (d) { ops.push({ op: 'set', col: 'insp', id: d._id || d.id, data: strip(d) }); });
       (x.matex || []).forEach(function (d) { ops.push({ op: 'set', col: 'matex', id: d._id || d.id, data: strip(d) }); });
       (x.po || []).forEach(function (d) { ops.push({ op: 'set', col: 'po', id: d._id || genId('P'), data: strip(d) }); });
+      (x.products || []).forEach(function (d) { ops.push({ op: 'set', col: 'products', id: d._id || prodId(d.barcode), data: strip(d) }); });
       if (x.settings && Object.keys(x.settings).length) ops.push({ op: 'merge', col: 'settings', id: 'main', data: strip(x.settings) });
       return S.db.batch(ops).then(function () { return { eg: (x.eg || []).length, rx: (x.rx || []).length, insp: (x.insp || []).length, matex: (x.matex || []).length, po: (x.po || []).length, removed: replace ? old.reduce(function (a, l) { return a + l.length; }, 0) : 0 }; }); }); };
   function strip(d) { var o = Object.assign({}, d); delete o._id; return o; }
-  API.exportBackup = function () { need('settings'); return Promise.all([S.db.get('settings', 'main'), S.db.all('eg'), S.db.all('rx'), S.db.all('insp'), S.db.all('matex'), S.db.all('po', 'sc', 'eg').catch(function () { return []; }), S.db.all('po', 'sc', 'rx').catch(function () { return []; })]).then(function (x) {
-    return { format: 'bst-app-backup', version: 1, exportedAt: new Date().toISOString(), settings: x[0] ? strip(x[0]) : {}, eg: x[1], rx: x[2], insp: x[3], matex: x[4], po: x[5].concat(x[6]) }; }); };
+  API.exportBackup = function () { need('settings'); return Promise.all([S.db.get('settings', 'main'), S.db.all('eg'), S.db.all('rx'), S.db.all('insp'), S.db.all('matex'), S.db.all('po', 'sc', 'eg').catch(function () { return []; }), S.db.all('po', 'sc', 'rx').catch(function () { return []; }), S.db.all('products').catch(function () { return []; })]).then(function (x) {
+    return { format: 'bst-app-backup', version: 1, exportedAt: new Date().toISOString(), settings: x[0] ? strip(x[0]) : {}, eg: x[1], rx: x[2], insp: x[3], matex: x[4], po: x[5].concat(x[6]), products: x[7] }; }); };
 
   // ------------------------------------------------------------------ public object for the login / admin screens
   window.BST = {

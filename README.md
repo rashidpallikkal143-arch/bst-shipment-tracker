@@ -145,3 +145,8 @@ Pipeline cards show *Truck 1/2*, the details view and Track shipment list all tr
 ### Egypt route
 Dispatch → on the road to the Egypt border (port) → ferry Egypt → KSA (`ferry` = On Ferry, `dFerry` date) → KSA border (arrived / cleared) → on the road to Ghuwaifat → Ghuwaifat border (arrived / cleared) → on the road to the warehouse → delivered → purchase booked.
 A truck only moves forward on a status or date for that step; an 'En Route' left in a later column (older sheet data) no longer moves it ahead.
+
+## Products & barcodes
+**🏷 Products & barcodes** (top of the Egypt and Global sections) is the product master: barcode, product name, pack size, brand, origin, supplier, unit, CTN per pallet, HS code and where it is used (Egypt / Global / both). Add products one by one, or download the **Empty template**, fill it in Excel and **Excel import** it (same barcode = update). **Excel export** downloads the list. Products are stored in the Firestore collection `products` (id `B<barcode>`) and included in backups.
+In the entry forms every product line starts with a **Barcode** box: type it, use a USB barcode scanner, or tap 📷 to scan with the phone / laptop camera. The product name and pack size fill in (Egypt also fills supplier, brand and origin when empty; Global fills the description and unit), and the cursor moves to the quantity; then type the quantity and batch. An unknown barcode shows **add it** to create the product on the spot.
+Egypt item lines store `[Barcode: …]` next to `[Batch: …]`; Global items have `barcode` and `batch` fields. Track shipment finds shipments by barcode.

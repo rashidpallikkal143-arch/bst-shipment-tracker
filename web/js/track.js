@@ -64,8 +64,8 @@
         ['Consignment', [cs.length ? cs.length + ' container' + (cs.length > 1 ? 's' : '') + (cs[0] && cs[0].size ? ' · ' + cs[0].size : '') : (s.contQty ? s.contQty + ' × ' + (s.contSize || 'container') : ''), its.length ? its.length + ' item' + (its.length > 1 ? 's' : '') : ''].filter(Boolean).join(' · ')],
         ['Supplier', s.supplier], ['Shipper', s.shipper], ['Invoice no.', s.invoice || s.key], ['B/L no.', s.bl], ['Shipping line', s.line], ['Vessel / voyage', [s.vessel, s.voyage].filter(Boolean).join(' / ')],
         ['Containers', cs.map(function (c) { return c.no; }).join(', ')], ['PO / PI', [s.po, s.pi].filter(Boolean).join(' / ')], ['Departed', dlong(s.atd || '')], [s.ata ? 'Arrived' : 'ETA', dlong(s.ata || s.eta)], ['Free days end', dlong(s.freeEnd)], ['Payment', s.payment]],
-      items: its.map(function (i) { return [i.desc, [i.qty, i.unit].filter(Boolean).join(' '), i.inv && i.inv !== s.key ? 'Inv ' + i.inv : '']; }), conts: cs,
-      ev: ev, hay: Object.keys(s).filter(function (k) { return k.charAt(0) !== '_'; }).map(function (k) { return s[k]; }).concat(its.map(function (i) { return i.desc; }), cs.map(function (c) { return c.no + ' ' + c.seal; })).join(' ') }; }
+      items: its.map(function (i) { return [i.desc, [i.qty, i.unit].filter(Boolean).join(' '), [i.batch ? 'Batch ' + i.batch : '', i.inv && i.inv !== s.key ? 'Inv ' + i.inv : ''].filter(Boolean).join(' · ')]; }), conts: cs,
+      ev: ev, hay: Object.keys(s).filter(function (k) { return k.charAt(0) !== '_'; }).map(function (k) { return s[k]; }).concat(its.map(function (i) { return [i.desc, i.barcode, i.batch].join(' '); }), cs.map(function (c) { return c.no + ' ' + c.seal; })).join(' ') }; }
 
   // ------------------------------------------------------------------ search
   var norm = function (s) { return String(s || '').toLowerCase(); }, tight = function (s) { return norm(s).replace(/[\s\-\/._]/g, ''); };
