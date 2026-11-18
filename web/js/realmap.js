@@ -99,9 +99,10 @@
       out.push([Math.atan2(z, Math.sqrt(x * x + y * y)) / R, Math.atan2(y, x) / R]); }
     return out; }
 
-  // Egypt trucks: Cairo -> Red Sea coast road -> Safaga ferry -> Duba -> across Saudi Arabia -> Batha / Ghuwaifat -> E11 -> Abu Dhabi
+  // Egypt trucks: Cairo -> Red Sea coast road -> Safaga port (Egypt border) -> ferry -> Duba (KSA border) -> across Saudi Arabia -> Batha / Ghuwaifat -> E11 -> Abu Dhabi
   var EG_ROAD = [
-    [[29.97, 32.5], [29.6, 32.35], [29.1, 32.65], [28.36, 33.08], [27.25, 33.8], [26.73, 33.94]],
+    [[29.97, 32.5], [29.6, 32.35], [29.1, 32.65], [28.36, 33.08], [27.25, 33.8]],
+    null,
     [[28.38, 36.57], [27.63, 38.55], [27.52, 41.69], [26.33, 43.97]],
     [[24.15, 47.3], [24.15, 49.07], [24.07, 50.6], [24.0, 51.4]],
     [[24.03, 51.77], [24.08, 52.7], [24.1, 53.45], [24.25, 54.1]]

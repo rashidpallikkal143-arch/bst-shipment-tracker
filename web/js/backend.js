@@ -27,7 +27,9 @@
     // reefer check when the purchase is booked
     'temp', 'reefer', 'tempNote',
     // trucks / containers that share one invoice
-    'grp'];
+    'grp',
+    // ferry Egypt -> KSA
+    'ferry', 'dFerry'];
   var EG_NUM = { sr: 1, ctn: 1, pallets: 1, invAmt: 1, frAmt: 1, temp: 1 };
   var INSP_KEYS = ['id', 'ref', 'invoice', 'level', 'product', 'status', 'authority', 'date', 'result', 'clearance', 'clearDate', 'action', 'owner', 'due', 'remarks', 'updated', 'by'];
   var MX_KEYS = ['id', 'month', 'container', 'inv', 'invDate', 'desc', 'amount', 'paid', 'status', 'payDate', 'mode', 'ref', 'due', 'remarks', 'updated'];
@@ -36,7 +38,7 @@
     transitDays: 8,
     egMonths: ['OCT 2026', 'NOV 2026', 'DEC 2026'],
     egLists: { po: ['Not Placed', 'Placed'], supPay: ['Unpaid', 'Pending', 'Initiated', 'Completed'], frPay: ['Unpaid', 'Pending', 'Initiated', 'Completed'],
-      loading: ['Scheduled', 'Dispatched'], ksa: ['En Route', 'Arrived', 'Cleared'], ghu: ['En Route', 'Arrived', 'Cleared'], wh: ['Arrived', 'Delivered'], purchase: ['Not Booked', 'Booked'] },
+      loading: ['Scheduled', 'Dispatched'], ferry: ['On Ferry'], ksa: ['En Route', 'Arrived', 'Cleared'], ghu: ['En Route', 'Arrived', 'Cleared'], wh: ['Arrived', 'Delivered'], purchase: ['Not Booked', 'Booked'] },
     rx: {
       stages: ['PO issued to supplier', 'Supplier confirmed / ready', 'Shipping documents received', 'Booking confirmed', 'Loaded & departed', 'In transit', 'Arrived at port / border',
         'Port release (DO / free time)', 'Customs declaration (Bayan) submitted', 'Duty paid & cleared', 'Transport to warehouse', 'Delivered to warehouse', 'Purchase not booked', 'Purchase booked'],
@@ -199,9 +201,11 @@
     var o = Object.assign({}, r), t = SET.transitDays, td = today();
     var base = o.actual || o.sched; o.eta = base ? addDays(base, t) : (o.etaManual || '');
     var dl = o.wh === 'Delivered' || o.wh === 'Arrived';
-    o.position = o.purchase === 'Booked' ? 'Closed - Purchase Booked' : dl ? 'Delivered to Warehouse' : o.ghu === 'Cleared' ? 'Out for Delivery' : o.ghu === 'Arrived' ? 'At Ghuwaifat Border'
-      : (o.ksa === 'Cleared' || o.ghu === 'En Route') ? 'En Route to Ghuwaifat' : o.ksa === 'Arrived' ? 'At KSA Border' : (o.loading === 'Dispatched' || o.ksa === 'En Route') ? 'En Route to KSA Border'
-      : o.loading === 'Scheduled' ? 'Awaiting Loading' : 'Pre-Shipment';
+    // route: dispatch -> road to the Egypt border (port) -> ferry Egypt to KSA -> KSA border -> road to Ghuwaifat -> Ghuwaifat border -> road to the warehouse -> delivered
+    // a truck only moves forward on a status or date that says so (an 'En Route' left in a later column does not count)
+    o.position = o.purchase === 'Booked' ? 'Closed - Purchase Booked' : dl ? 'Delivered to Warehouse' : (o.ghu === 'Cleared' || o.dGhu) ? 'On the Road to Warehouse' : (o.ghu === 'Arrived' || o.dGhuArr) ? 'At Ghuwaifat Border'
+      : (o.ksa === 'Cleared' || o.dKsa) ? 'En Route to Ghuwaifat' : (o.ksa === 'Arrived' || o.dKsaArr) ? 'At KSA Border' : (o.ferry === 'On Ferry' || o.dFerry) ? 'Ferry Transit Egypt to KSA'
+      : (o.loading === 'Dispatched' || o.actual) ? 'En Route to Egypt Border' : o.loading === 'Scheduled' ? 'Awaiting Loading' : 'Pre-Shipment';
     o.milestones = ((o.po === 'Placed') + (o.supPay === 'Completed') + (o.frPay === 'Completed') + (o.loading === 'Dispatched') + (o.ksa === 'Cleared') + (o.ghu === 'Cleared') + dl + (o.purchase === 'Booked')) / 8;
     if (!o.eta) o.alert = ''; else if (dl) o.alert = 'Delivered'; else { var n = dayDiff(o.eta, td); o.alert = n < 0 ? 'Overdue ' + (-n) + ' days' : n === 0 ? 'Due today' : 'Due in ' + n + ' days'; }
     return o;

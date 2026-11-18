@@ -24,22 +24,23 @@
     var ev = [], add = function (d, t, where, icon, done) { ev.push({ d: d, t: t, w: where, i: icon, done: done !== false }); };
     var st = r.position || '', origin = r.origin || 'Egypt';
     // the step the shipment has reached (same order as the Egypt pipeline); every step up to it is shown, with its date when recorded
-    var P = ['Pre-Shipment', 'Awaiting Dispatch', 'En Route to KSA Border', 'At KSA Border', 'En Route to Ghuwaifat', 'At Ghuwaifat Border', 'Out for Delivery', 'Delivered to Warehouse', 'Closed - Purchase Booked'], at = P.indexOf(st);
+    var P = ['Pre-Shipment', 'Awaiting Loading', 'En Route to Egypt Border', 'Ferry Transit Egypt to KSA', 'At KSA Border', 'En Route to Ghuwaifat', 'At Ghuwaifat Border', 'On the Road to Warehouse', 'Delivered to Warehouse', 'Closed - Purchase Booked'], at = P.indexOf(st);
     var reached = function (k, d) { return !!d || at >= k; };
     if (r.sched) add(r.sched, 'Loading planned', origin, '📋');
-    if (reached(2, r.actual)) add(r.actual, 'Dispatched from Egypt', origin + '  -to-  KSA border', '🚚');
-    if (reached(3, r.dKsaArr)) add(r.dKsaArr, 'Arrived at KSA border', 'Saudi Arabia', '🛃');
-    if (reached(4, r.dKsa)) add(r.dKsa, 'Cleared KSA border', 'KSA  -to-  Ghuwaifat border', '🚚');
-    if (reached(5, r.dGhuArr)) add(r.dGhuArr, 'Arrived at Ghuwaifat border', 'Ghuwaifat, UAE', '🛃');
-    if (reached(6, r.dGhu)) add(r.dGhu, 'Cleared UAE customs, out for delivery', 'Ghuwaifat  -to-  warehouse', '🚚');
-    if (reached(7, r.delivered) || dl) { add(r.delivered, 'Delivered to warehouse', 'BST warehouse, UAE', '✅');
+    if (reached(2, r.actual)) add(r.actual, 'Dispatched, on the road to the Egypt border', origin + '  -to-  Egypt border (port)', '🚚');
+    if (reached(3, r.dFerry)) add(r.dFerry, 'Ferry transit Egypt to KSA', 'Egypt port  -to-  KSA border', '⛴️');
+    if (reached(4, r.dKsaArr)) add(r.dKsaArr, 'Arrived at KSA border', 'Saudi Arabia', '🛃');
+    if (reached(5, r.dKsa)) add(r.dKsa, 'Cleared KSA border, on the road to Ghuwaifat', 'KSA  -to-  Ghuwaifat border', '🚚');
+    if (reached(6, r.dGhuArr)) add(r.dGhuArr, 'Arrived at Ghuwaifat border', 'Ghuwaifat, UAE', '🛃');
+    if (reached(7, r.dGhu)) add(r.dGhu, 'Cleared UAE customs, on the road to the warehouse', 'Ghuwaifat  -to-  warehouse', '🚚');
+    if (reached(8, r.delivered) || dl) { add(r.delivered, 'Delivered to warehouse', 'BST warehouse, UAE', '✅');
       var tx = [r.temp === '' || r.temp == null ? '' : (Number(r.temp) > 0 ? '+' : '') + r.temp + ' °C', r.reefer, r.tempNote].filter(Boolean).join(' · ');
       if (tx) { ev[ev.length - 1].x = '🌡 Temperature: ' + tx; ev[ev.length - 1].bad = !!r.reefer && r.reefer !== 'Reefer OK' && r.reefer !== 'Not a reefer (dry cargo)'; } }
-    if (reached(8, r.dPurchase)) add(r.dPurchase, 'Purchase booked in the system', 'BST', '🧾');
+    if (reached(9, r.dPurchase)) add(r.dPurchase, 'Purchase booked in the system', 'BST', '🧾');
     if (!dl && r.eta) add(r.eta, 'Expected delivery (ETA)', 'BST warehouse, UAE', '⏳', false);
     return { sc: 'eg', id: r.row, raw: r, ref: r.container || r.vehicle || ('#' + r.sr), sub: 'Egypt · ' + r.month + ' · #' + r.sr,
       status: st || 'Pre-Shipment', alert: !dl && r.alert && /overdue|due/i.test(r.alert) ? r.alert : '', done: dl,
-      rows: [['Current Status', st || 'Pre-Shipment'], ['Section', 'Egypt (road)'], ['Origin', origin], ['Destination', 'BST warehouse, UAE (via KSA & Ghuwaifat)'],
+      rows: [['Current Status', st || 'Pre-Shipment'], ['Section', 'Egypt (road)'], ['Origin', origin], ['Destination', 'BST warehouse, UAE (ferry to KSA, then Ghuwaifat)'],
         ['Consignment', [ctn ? nf(ctn) + ' CTN' : '', Number(r.pallets) ? nf(r.pallets) + ' pallets' : '', its.length ? its.length + ' product' + (its.length > 1 ? 's' : '') : ''].filter(Boolean).join(' · ')],
         ['Supplier', r.supplier], ['Invoice no.', r.inv], ['Container no.', r.container], ['Truck plate no.', r.vehicle], ['Driver', [r.driver, r.mobile].filter(Boolean).join(' · ')],
         ['PO / schedule', r.poNo], ['Trucks on this invoice', r.grp ? CACHE.eg.filter(function (x) { return x.grp === r.grp; }).map(function (x) { return (x === r ? '▶ ' : '') + (x.container || x.vehicle || '#' + x.sr) + (x.driver ? ' (' + x.driver + ')' : '') + ' · ' + (x.position || ''); }).join('\n') : ''], ['Temperature', [r.temp === '' || r.temp == null ? '' : r.temp + ' °C', r.reefer, r.tempNote].filter(Boolean).join(' · ')], ['Dispatched', dlong(r.actual)], [dl ? 'Delivered' : 'ETA', dlong(dl ? r.delivered : r.eta)]],

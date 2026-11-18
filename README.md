@@ -118,7 +118,7 @@ Filled fields are highlighted in yellow. Values that differ from what is already
 
 The Egypt section opens with an operations dashboard:
 - **KPI tiles**: open shipments, on the road, at the borders, overdue, delivered, cartons, supplier and freight payments due.
-- **Shipment pipeline**: every open shipment as a card in its current step (Planned → To KSA → At KSA → To Ghuwaifat → At Ghuwaifat → Out for delivery → Delivered). The green button moves it to the next step and records the date; dispatch offers fields for the truck plate and container no.. Egypt container and truck numbers are short local numbers (e.g. 8253), so they are not checked as ISO container numbers.
+- **Shipment pipeline**: every open shipment as a card in its current step: Planned → On the road to Egypt border → Ferry transit Egypt → KSA → At KSA border → On the road to Ghuwaifat → At Ghuwaifat border → On the road to warehouse → Delivered. The green button moves it to the next step and records the date; dispatch offers fields for the truck plate and container no.. Egypt container and truck numbers are short local numbers (e.g. 8253), so they are not checked as ISO container numbers.
 - **Payments due** with *Mark paid*, **transit times** per leg (from the step dates), **supplier scorecard**, **monthly trend** and **Needs fixing** (data checks with a *Fix* button that opens the right part of the form).
 - **🖨 Egypt report**: printable / PDF report (A4 landscape) for a month or all months.
 
@@ -141,3 +141,7 @@ Shown in: the dashboard panel *Reefer & temperature at booking* (counts, average
 In the Egypt form, section *3 · Trucks & containers* has **+ Add another truck / container on this invoice**. Each extra truck gets its own truck plate, container no., driver, mobile, freight amount and products (batch, CTN, pallets).
 On save every truck becomes its own shipment (own order no., pipeline card and step dates) linked by an invoice group (`grp`). Supplier, invoice no. / date, PO, brand, origin and supplier payment stay the same on every truck of the invoice; the invoice amount is kept once, on truck 1, so totals are not doubled, and the supplier payment is listed (and marked paid) once per invoice.
 Pipeline cards show *Truck 1/2*, the details view and Track shipment list all trucks of the invoice. A PDF invoice listing several containers adds the extra trucks automatically.
+
+### Egypt route
+Dispatch → on the road to the Egypt border (port) → ferry Egypt → KSA (`ferry` = On Ferry, `dFerry` date) → KSA border (arrived / cleared) → on the road to Ghuwaifat → Ghuwaifat border (arrived / cleared) → on the road to the warehouse → delivered → purchase booked.
+A truck only moves forward on a status or date for that step; an 'En Route' left in a later column (older sheet data) no longer moves it ahead.

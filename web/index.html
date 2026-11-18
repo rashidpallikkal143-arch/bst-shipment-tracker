@@ -275,7 +275,7 @@ body.nodel #del,body.nodel #edel{display:none!important}
 <div class="hm-logo"><img id="hmlogo" alt="Baniyas Spike Trading Co. L.L.C."></div>
 <div class="hm-t">Import Container Tracking</div><div class="hm-s">Choose a section to open</div>
 <div class="hm-cards">
-<button class="hm-c" id="hc-eg" type="button"><span class="hm-ic">🚛</span><b>Egypt</b><span class="hm-d">Egypt → KSA border → Ghuwaifat → warehouse containers</span><span class="hm-st" id="hs-eg"></span></button>
+<button class="hm-c" id="hc-eg" type="button"><span class="hm-ic">🚛</span><b>Egypt</b><span class="hm-d">Egypt → ferry → KSA border → Ghuwaifat → warehouse</span><span class="hm-st" id="hs-eg"></span></button>
 <button class="hm-c" id="hc-rx" type="button"><span class="hm-ic">🚢</span><b>BST Global Import Shipments</b><span class="hm-d">Sea, air and road import shipments</span><span class="hm-st" id="hs-rx"></span></button>
 </div>
 <div id="hp" class="hm-p" style="display:none"><div id="hp-t" class="hm-pt"></div><div class="hm-row"><input id="hp-i" type="password" placeholder="Password" autocomplete="off"><button class="p" id="hp-ok" type="button">Open</button></div><div id="hp-m" class="hm-m"></div></div>
@@ -392,7 +392,7 @@ var UAE_P=[[/jebel/i,'Jebel Ali Port',25.01,55.06],[/khalifa/i,'Khalifa Port',24
  [/(abu dhabi|auh).*air|air.*(abu dhabi|auh)/i,'Abu Dhabi Airport',24.43,54.65],[/hatta/i,'Hatta border',24.8,56.1]];
 var WH={n:'BST warehouse · Abu Dhabi',lat:24.37,lon:54.52};
 var TR={sc:'eg',q:'',f:'all',res:[],sel:0,yaw:-14,pitch:54,zoom:1,anim:0,t0:0,raf:0,upd:'',timer:0};
-var EG_T=[0,0,0.5,1,2,3,3.5,4,4],EG_DV={po:['Placed'],supPay:['Completed'],frPay:['Completed'],loading:['Dispatched'],ksa:['Cleared'],ghu:['Cleared'],wh:['Arrived','Delivered'],purchase:['Booked']};
+var EG_T=[0,0,0.5,1.5,2,3,4,4.5,5,5],EG_DV={po:['Placed'],supPay:['Completed'],frPay:['Completed'],loading:['Dispatched'],ferry:['On Ferry'],ksa:['Cleared'],ghu:['Cleared'],wh:['Arrived','Delivered'],purchase:['Booked']};
 var low=function(x){return String(x==null?'':x).toLowerCase()};
 function geoOf(c){var k=low(c).trim();if(GEO[k])return GEO[k];for(var g in GEO)if(k&&(k.indexOf(g)>=0||g.indexOf(k)>=0))return GEO[g];return null}
 function portOf(p){for(var i=0;i<UAE_P.length;i++)if(UAE_P[i][0].test(p||''))return {n:UAE_P[i][1],lat:UAE_P[i][2],lon:UAE_P[i][3]};return {n:p?String(p):'Jebel Ali Port',lat:25.01,lon:55.06}}
@@ -400,7 +400,7 @@ function rxMode(s){var p=low(s.port);if(/air|awb/.test(p))return 'air';if(/ghuwa
 function rxT(s){var st=s.stage||'',M={'PO issued to supplier':0,'Supplier confirmed / ready':0,'Shipping documents received':0,'Booking confirmed':0,'Loaded & departed':0.3,'In transit':1,
  'Arrived at port / border':2,'Port release (DO / free time)':2,'Customs declaration (Bayan) submitted':2.5,'Duty paid & cleared':3,'Transport to warehouse':3.5};
  if(DONE.indexOf(st)>=0)return 4;if(M[st]!=null)return M[st];var l=low(st);return /deliver|purchase/.test(l)?4:/transport/.test(l)?3.5:/duty|clear/.test(l)?3:/custom|bayan/.test(l)?2.5:/arriv|port|release/.test(l)?2:/transit/.test(l)?1:/load|depart/.test(l)?0.3:0}
-function trStatus(sc,x){if(sc==='eg'){if(isDel(x))return 'dl';if(isOver(x))return 'od';var p=pi(x);return p===3||p===5?'bd':p>=2?'go':'pre'}
+function trStatus(sc,x){if(sc==='eg'){if(isDel(x))return 'dl';if(isOver(x))return 'od';var p=pi(x);return p===4||p===6?'bd':p>=2?'go':'pre'}
  if(DONE.indexOf(x.stage)>=0)return 'dl';if(isLate(x))return 'od';var t=rxT(x);return t>=2&&t<4?'bd':t>0?'go':'pre'}
 var ST_L={dl:'Delivered',od:'Delayed / overdue',bd:'At border / port / customs',go:'On the way',pre:'Not dispatched yet'};
 // ---------- search ----------
@@ -421,7 +421,7 @@ function trProducts(sc){var c={},nm={},add=function(v){var k=String(v||'').repla
 function trQty(r){if(r.sc==='eg'){var l=r.hit.length?r.items.filter(function(i){return r.hit.indexOf(i.n+'|'+(i.p||''))>=0}):r.items,n=0;l.forEach(function(i){n+=Number(i.c)||0});return n?fmt(n)+' ctn':(r.x.ctn?fmt(r.x.ctn)+' ctn':'')}
  var m={};(r.hit.length?r.items.filter(function(i){return r.hit.indexOf(i.desc)>=0}):r.items).forEach(function(i){var u=i.unit||'';m[u]=(m[u]||0)+(Number(i.qty)||0)});
  return Object.keys(m).filter(function(u){return m[u]}).map(function(u){return fmt(m[u])+(u?' '+u:'')}).join(' · ')}
-function trPct(r){return r.sc==='eg'?Math.round(r.t/4*100):Math.round(r.t/4*100)}
+function trPct(r){return r.sc==='eg'?Math.round(r.t/5*100):Math.round(r.t/4*100)}
 // ---------- open / render ----------
 function openTracker(sc,q){TR.sc=sc;TR.view='map';if(typeof trView==='function')setTimeout(function(){trView('map')},0);TR.q=q||'';TR.f='all';TR.sel=0;TR.yaw=-14;TR.pitch=54;TR.zoom=1;
  if((sc==='eg'&&!E)||(sc==='rx'&&!(D&&D.shipments))){alert('Data is still loading. Please try again in a moment.');return}
@@ -473,8 +473,8 @@ function trDetail(){var el=$('tr-det'),r=TR.list[TR.sel];$('tr-vt').style.displa
  el.innerHTML=h}
 // ---------- 3D scene ----------
 function trScene(){var r=TR.list[TR.sel],N=[],M=[],modes,tt=function(q){var x=q.x,t=q.t;if(q.sc==='rx'&&q._live)return 1;if(q.sc!=='rx'||!x.port1)return t;if(t<1)return t;if(t<2)return x.ata1?2.5:t;if(t===2&&x.ata1&&!x.ata)return 2;return t+1};
- if(TR.sc==='eg'){N=[{n:'Egypt · dispatch',lat:30.05,lon:31.25},{n:'KSA border',lat:27.35,lon:35.69},{n:'Across Saudi Arabia',lat:24.71,lon:46.67,minor:1},{n:'Ghuwaifat border (UAE)',lat:24.12,lon:51.62},{n:WH.n,lat:WH.lat,lon:WH.lon}];modes=['road','road','road','road'];
-  if(r){var x=r.x;N[0].s=x.actual?'Dispatched '+shortD(x.actual):x.sched?'Planned '+shortD(x.sched):'';N[1].s=x.ksa||'';N[3].s=x.ghu||'';N[4].s=x.delivered?'Delivered '+shortD(x.delivered):x.eta?'ETA '+shortD(x.eta):''}
+ if(TR.sc==='eg'){N=[{n:'Egypt · dispatch',lat:30.05,lon:31.25},{n:'Egypt border · Safaga port',lat:26.73,lon:33.94},{n:'KSA border · Duba',lat:27.35,lon:35.69},{n:'Across Saudi Arabia',lat:24.71,lon:46.67,minor:1},{n:'Ghuwaifat border (UAE)',lat:24.12,lon:51.62},{n:WH.n,lat:WH.lat,lon:WH.lon}];modes=['road','road','road','road','road'];
+  if(r){var x=r.x;N[0].s=x.actual?'Dispatched '+shortD(x.actual):x.sched?'Planned '+shortD(x.sched):'';N[1].s=x.dFerry?'Ferry '+shortD(x.dFerry):(x.ferry||'');N[2].s=x.dKsa?'Cleared '+shortD(x.dKsa):(x.ksa||'');N[4].s=x.dGhu?'Cleared '+shortD(x.dGhu):(x.ghu||'');N[5].s=x.delivered?'Delivered '+shortD(x.delivered):x.eta?'ETA '+shortD(x.eta):''}
   TR.list.forEach(function(q,i){if(q.st!=='dl'||i===TR.sel)M.push({t:q.t,i:i,ic:'🚛',lb:q.name,sel:i===TR.sel,st:q.st})})}
  else{if(!r)return null;var s=r.x,g=geoOf(s.country),p=portOf(s.port),md=rxMode(s);
   var o=g?{n:(s.country||'Origin')+' · origin',lat:g[0],lon:g[1]}:{n:(s.country||'Origin')+' · origin',lat:p.lat+8,lon:p.lon-22};
@@ -577,8 +577,8 @@ function hlData(sc){var S=[],T=[],st=iStats(sc),insp={k:'insp',ic:'🔍',t:'Insp
   var cnt=function(i){return all.filter(function(r){return pi(r)===i}).length};
   S.push({k:'ov',ic:'📊',t:'Overview',g:['#00a651','#006b35'],n:all.length,u:'containers',sb:fmt(ctn)+' CTN · '+dlv+' delivered · '+c('booked')+' purchase booked · '+c('pre')+' not dispatched',p:pct(dlv,all.length),pl:'Delivered',d:'eg:all'});
   S.push(insp);
-  S.push({k:'port',ic:'⚓',t:'Containers at border / port',g:['#1f6feb','#0b3fa8'],n:port,u:'containers',sb:'At KSA border: '+cnt(3)+' · At Ghuwaifat border: '+cnt(5),p:pct(port,open.length),pl:'Of open containers',d:'eg:port'});
-  S.push({k:'road',ic:'🚛',t:'Containers on the road',g:['#0fa3b1','#0b6470'],n:road,u:'containers',sb:'To KSA border: '+cnt(2)+' · To Ghuwaifat: '+cnt(4)+' · Out for delivery: '+cnt(6),p:pct(road,open.length),pl:'Of open containers',d:'eg:road'});
+  S.push({k:'port',ic:'⚓',t:'Containers at border / port',g:['#1f6feb','#0b3fa8'],n:port,u:'containers',sb:'At KSA border: '+cnt(4)+' · At Ghuwaifat border: '+cnt(6),p:pct(port,open.length),pl:'Of open containers',d:'eg:port'});
+  S.push({k:'road',ic:'🚛',t:'Containers on the road',g:['#0fa3b1','#0b6470'],n:road,u:'containers',sb:'To Egypt border: '+cnt(2)+' · Ferry: '+cnt(3)+' · To Ghuwaifat: '+cnt(5)+' · To warehouse: '+cnt(7),p:pct(road,open.length),pl:'Of open containers',d:'eg:road'});
   S.push({k:'due',ic:'📦',t:'Due deliveries · next 7 days',g:['#f59e0b','#c2410c'],n:due.length,u:'due',sb:'Today: '+due.filter(function(r){return r.eta===TD}).length+' · Within 3 days: '+soon+(due.length?' · First: '+esc(egRef(due.sort(function(a,b){return a.eta.localeCompare(b.eta)})[0]))+' ('+shortD(due[0].eta)+')':''),p:pct(due.length,open.length),pl:'Of open containers',d:'eg:due7'});
   S.push({k:'over',ic:over?'⚠️':'⏰',t:'Overdue · coming nearest',g:over?['#ef4444','#991b1b']:['#64748b','#334155'],n:over,u:'overdue',sb:nxt.length?'Nearest due: '+nxt.slice(0,2).map(function(r){return '<b>'+esc(egRef(r))+'</b> '+shortD(r.eta)+' ('+inTxt(r.eta)+')'}).join(' · '):'No upcoming deliveries',p:pct(over,open.length),pl:'Of open containers',d:over?'eg:overdue':(nxt.length?'eg:due7':'eg:all')});
  }else{if(!D||!D.shipments)return null;var all=rxRows(),c=function(k){return all.filter(RXP[k][1]).length},open=all.filter(RXP.open[1]);
@@ -743,16 +743,16 @@ function inspBlock(sc,ref){var rs=INS[sc].filter(function(r){return r.ref===ref}
 
 /* ===================== EGYPT ===================== */
 var E=null,month='ALL',eF='all',eDir=1;
-var POS=['Pre-Shipment','Awaiting Loading','En Route to KSA Border','At KSA Border','En Route to Ghuwaifat','At Ghuwaifat Border','Out for Delivery','Delivered to Warehouse','Closed - Purchase Booked'];
-var POSC=['#9aa5b4','#9aa5b4','#1f6feb','#1f6feb','#1f6feb','#1f6feb','#e6a23c','#00a651','#007a3d'];
-var MS=[['po','Supplier PO Status',['Placed']],['supPay','Supplier Payment (Advance / Balance)',['Completed']],['frPay','Freight Payment (Truck)',['Completed']],['loading','Loading & Dispatch',['Dispatched']],['ksa','KSA Border Clearance',['Cleared']],['ghu','Ghuwaifat Border Clearance (UAE)',['Cleared']],['wh','Warehouse Delivery',['Arrived','Delivered']],['purchase','Purchase Entry (System Booking)',['Booked']]];
+var POS=['Pre-Shipment','Awaiting Loading','En Route to Egypt Border','Ferry Transit Egypt to KSA','At KSA Border','En Route to Ghuwaifat','At Ghuwaifat Border','On the Road to Warehouse','Delivered to Warehouse','Closed - Purchase Booked'];
+var POSC=['#9aa5b4','#9aa5b4','#1f6feb','#0fa3b1','#1f6feb','#1f6feb','#1f6feb','#e6a23c','#00a651','#007a3d'];
+var MS=[['po','Supplier PO Status',['Placed']],['supPay','Supplier Payment (Advance / Balance)',['Completed']],['frPay','Freight Payment (Truck)',['Completed']],['loading','Loading & Dispatch',['Dispatched']],['ferry','Ferry Egypt → KSA',['On Ferry']],['ksa','KSA Border Clearance',['Cleared']],['ghu','Ghuwaifat Border Clearance (UAE)',['Cleared']],['wh','Warehouse Delivery',['Arrived','Delivered']],['purchase','Purchase Entry (System Booking)',['Booked']]];
 var pi=function(r){return POS.indexOf(r.position)};
-var isDel=function(r){return pi(r)>=7},isRoad=function(r){return pi(r)>=2&&pi(r)<=6},isOver=function(r){return /^overdue/i.test(r.alert||'')};
+var isDel=function(r){return pi(r)>=8},isRoad=function(r){return pi(r)>=2&&pi(r)<=7},isOver=function(r){return /^overdue/i.test(r.alert||'')};
 var egRef=function(r){return r.container||r.vehicle||(r.month+' #'+r.sr)};
 var msState=function(r,m){var v=r[m[0]];return !v?'n':(m[2].indexOf(v)>=0?'d':'p')};
-var EGP={all:['All containers',function(){return true}],overdue:['Overdue deliveries',isOver],road:['On the road / at borders',isRoad],dispatched:['Dispatched from Egypt',function(r){return pi(r)>=2}],port:['At border / port',function(r){return pi(r)===3||pi(r)===5}],delivered:['Delivered to warehouse',isDel],pre:['Pre-shipment / awaiting loading',function(r){return pi(r)<2}],booked:['Purchase booked',function(r){return r.position==='Closed - Purchase Booked'}],notbooked:['Delivered, purchase not booked',function(r){return r.position==='Delivered to Warehouse'}],soon:['Due within 3 days',function(r){return /^due today|^due in [0-3] day/i.test(r.alert||'')}],inspopen:['Inspection open / needs action',function(r){return inspRag('eg',egRef(r))>=2}]};
+var EGP={all:['All containers',function(){return true}],overdue:['Overdue deliveries',isOver],road:['On the road / at borders',isRoad],dispatched:['Dispatched from Egypt',function(r){return pi(r)>=2}],port:['At border / port',function(r){return pi(r)===4||pi(r)===6}],delivered:['Delivered to warehouse',isDel],pre:['Pre-shipment / awaiting loading',function(r){return pi(r)<2}],booked:['Purchase booked',function(r){return r.position==='Closed - Purchase Booked'}],notbooked:['Delivered, purchase not booked',function(r){return r.position==='Delivered to Warehouse'}],soon:['Due within 3 days',function(r){return /^due today|^due in [0-3] day/i.test(r.alert||'')}],inspopen:['Inspection open / needs action',function(r){return inspRag('eg',egRef(r))>=2}]};
 EGP.due7=['Deliveries due in the next 7 days',function(r){return !isDel(r)&&!isOver(r)&&!!r.eta&&r.eta>=TD&&days(r.eta,TD)<=7}];
-EGP.ksa=['At KSA border',function(r){return pi(r)===3}];EGP.ghu=['At Ghuwaifat border',function(r){return pi(r)===5}];
+EGP.ksa=['At KSA border',function(r){return pi(r)===4}];EGP.ghu=['At Ghuwaifat border',function(r){return pi(r)===6}];EGP.ferry=['On the ferry Egypt → KSA',function(r){return pi(r)===3}];
 var EGCH=['all','overdue','road','dispatched','port','delivered','pre','booked','notbooked','inspopen'];
 // Invoice-number order: "005-2026", "06-2026", "13-2026" sort by year then number; other formats after; blank last.
 function invKey(v){var t=String(v||'').split(/\s*[,;\n]\s*/)[0].trim();if(!t)return [3,0,0,''];var m=/(\d+)\s*[-\/]\s*((?:19|20)\d{2})\s*$/.exec(t);if(m)return [0,Number(m[2]),Number(m[1]),t.toLowerCase()];
@@ -760,7 +760,7 @@ function invKey(v){var t=String(v||'').split(/\s*[,;\n]\s*/)[0].trim();if(!t)ret
 function invCmp(a,b){var x=invKey(a),y=invKey(b);for(var i=0;i<3;i++)if(x[i]!==y[i])return x[i]-y[i];return x[3].localeCompare(y[3],undefined,{numeric:true})}
 var EGS={inv:['Invoice no.',function(a,b){return invCmp(a.inv,b.inv)||(a._i||0)-(b._i||0)}],eta:['ETA (UAE)',function(a,b){return (a.eta||'9').localeCompare(b.eta||'9')}],sched:['Planned dispatch',function(a,b){return (a.sched||'9').localeCompare(b.sched||'9')}],pos:['Journey position',function(a,b){return pi(a)-pi(b)}],alert:['Overdue first',function(a,b){return Number(isOver(b))-Number(isOver(a))}],container:['Container no.',function(a,b){return String(a.container).localeCompare(String(b.container))}],supplier:['Supplier',function(a,b){return String(a.supplier).localeCompare(String(b.supplier))}],ctn:['Total CTN',function(a,b){return (Number(a.ctn)||0)-(Number(b.ctn)||0)}],sr:['Entry order',function(a,b){return (a._i||0)-(b._i||0)}]};
 $('es').innerHTML=Object.keys(EGS).map(function(k){return '<option value="'+k+'">Sort: '+EGS[k][0]+'</option>'}).join('');
-function posChip(r){var i=pi(r);return '<span class="chip '+(i>=7?'cg':i>=2?'cb':'cn')+'">'+esc(r.position||'Not set')+'</span>'}
+function posChip(r){var i=pi(r);return '<span class="chip '+(i>=8?'cg':i>=2?'cb':'cn')+'">'+esc(r.position||'Not set')+'</span>'}
 function alChip(r){var a=r.alert||'';if(!a)return '';var c=/^delivered/i.test(a)?'cg':/^overdue/i.test(a)?'cr':/due/i.test(a)?'co':'cn';return '<span class="chip '+c+'">'+esc(a)+'</span>'}
 function egRows(){return E?E.rows.filter(egIn):[]}
 function egCompact(l){if(!l.length)return '<div class="mu">No containers.</div>';

@@ -15,23 +15,25 @@
   // ------------------------------------------------------------------ the journey
   var ST = [
     { t: 'Planned / loading', s: 'Planned', d: 'sched', c: '#8a94a6' },
-    { t: 'On the road to KSA', s: 'To KSA', d: 'actual', c: '#1f6feb' },
+    { t: 'On the road to Egypt border', s: 'To Egypt border', d: 'actual', c: '#1f6feb' },
+    { t: 'Ferry transit Egypt → KSA', s: 'Ferry', d: 'dFerry', c: '#0fa3b1' },
     { t: 'At KSA border', s: 'At KSA', d: 'dKsaArr', c: '#c27a0a' },
     { t: 'On the road to Ghuwaifat', s: 'To Ghuwaifat', d: 'dKsa', c: '#1f6feb' },
     { t: 'At Ghuwaifat border', s: 'At Ghuwaifat', d: 'dGhuArr', c: '#c27a0a' },
-    { t: 'Out for delivery', s: 'Out for delivery', d: 'dGhu', c: '#7a5af8' },
+    { t: 'On the road to warehouse', s: 'To warehouse', d: 'dGhu', c: '#7a5af8' },
     { t: 'Delivered · purchase not booked', s: 'Delivered', d: 'delivered', c: '#00a651' },
     { t: 'Closed · purchase booked', s: 'Closed', d: 'dPurchase', c: '#007a3d' }];
   var STEP = [
-    { t: 'Dispatched from Egypt', b: 'Dispatched', date: 'actual', set: { loading: 'Dispatched' }, also: { ksa: 'En Route' } },
+    { t: 'Dispatched from Egypt (on the road to the Egypt border)', b: 'Dispatched', date: 'actual', set: { loading: 'Dispatched' } },
+    { t: 'Ferry departed Egypt → KSA', b: 'On ferry', date: 'dFerry', set: { ferry: 'On Ferry' } },
     { t: 'Arrived at KSA border', b: 'At KSA', date: 'dKsaArr', set: { ksa: 'Arrived' } },
-    { t: 'Cleared KSA border', b: 'KSA cleared', date: 'dKsa', set: { ksa: 'Cleared' }, also: { ghu: 'En Route' } },
+    { t: 'Cleared KSA border (on the road to Ghuwaifat)', b: 'KSA cleared', date: 'dKsa', set: { ksa: 'Cleared' } },
     { t: 'Arrived at Ghuwaifat border', b: 'At Ghuwaifat', date: 'dGhuArr', set: { ghu: 'Arrived' } },
-    { t: 'Cleared Ghuwaifat · out for delivery', b: 'Ghuwaifat cleared', date: 'dGhu', set: { ghu: 'Cleared' } },
+    { t: 'Cleared Ghuwaifat (on the road to warehouse)', b: 'Ghuwaifat cleared', date: 'dGhu', set: { ghu: 'Cleared' } },
     { t: 'Delivered to warehouse', b: 'Delivered', date: 'delivered', set: { wh: 'Delivered' } },
     { t: 'Purchase booked in the system', b: 'Book purchase', date: 'dPurchase', set: { purchase: 'Booked' } }];
   function stg(r) { var i = typeof pi === 'function' ? pi(r) : -1; return i <= 1 ? 0 : i - 1; }
-  var LEGS = [['Egypt → KSA border', 'actual', 'dKsaArr'], ['Waiting at KSA border', 'dKsaArr', 'dKsa'], ['KSA → Ghuwaifat', 'dKsa', 'dGhuArr'],
+  var LEGS = [['Road to Egypt border (dispatch → ferry)', 'actual', 'dFerry'], ['Ferry transit Egypt → KSA', 'dFerry', 'dKsaArr'], ['Waiting at KSA border', 'dKsaArr', 'dKsa'], ['KSA → Ghuwaifat', 'dKsa', 'dGhuArr'],
     ['Waiting at Ghuwaifat border', 'dGhuArr', 'dGhu'], ['Ghuwaifat → warehouse', 'dGhu', 'delivered'], ['Door to door (dispatch → delivery)', 'actual', 'delivered']];
 
   var ISOV = '0123456789A?BCDEFGHIJK?LMNOPQRSTU?VWXYZ';
@@ -44,7 +46,7 @@
 
   // several trucks / containers on one invoice: each truck is its own shipment, linked by 'grp'
   var SHARED = ['supplier', 'inv', 'invDate', 'poNo', 'poId', 'brand', 'origin', 'supPay', 'dSupPay', 'po', 'dPo'];
-  var JOURNEY = ['sched', 'loading', 'actual', 'ksa', 'dKsaArr', 'dKsa', 'ghu', 'dGhuArr', 'dGhu', 'wh', 'delivered', 'purchase', 'dPurchase'];
+  var JOURNEY = ['sched', 'loading', 'actual', 'ferry', 'dFerry', 'ksa', 'dKsaArr', 'dKsa', 'ghu', 'dGhuArr', 'dGhu', 'wh', 'delivered', 'purchase', 'dPurchase'];
   function groupOf(r) { if (!r || !r.grp || !window.E) return r && r.row ? [r] : []; return E.rows.filter(function (x) { return x.grp === r.grp; }).sort(function (a, b) { return (E.months.indexOf(a.month) - E.months.indexOf(b.month)) || num(a.sr) - num(b.sr); }); }
   function isLead(r) { var g = groupOf(r); return !g.length || g[0] === r || g[0].row === r.row; }
   function truckNo(r) { var g = groupOf(r); return g.length > 1 ? (g.indexOf(r) + 1) + '/' + g.length : ''; }
@@ -73,11 +75,11 @@
     if (r.supplier && OWN.test(r.supplier)) add('Supplier is your own company (' + r.supplier + '), enter the Egyptian supplier', 'order');
     if (r.inv && /^\d{4}-\d\d-\d\d$/.test(r.inv)) add('Invoice no. looks like a date (' + r.inv + ')', 'order');
     // delivered: everything needed for the purchase booking should now be complete
-    if (st >= 6) bookMissing(r).forEach(function (x) { if (!(x[0] === 'Supplier (Egypt)' && r.supplier)) add(x[0] + ' missing' + (st >= 7 ? '' : ' (needed to book the purchase)'), x[1], st >= 7 ? 'e' : 'w'); });
-    if (r.delivered && st < 6) add('Has a delivery date but warehouse status is "' + (r.wh || 'not set') + '"', 'trip');
-    if (st >= 6 && !r.delivered) add('Delivered but no delivery date', 'trip');
+    if (st >= 7) bookMissing(r).forEach(function (x) { if (!(x[0] === 'Supplier (Egypt)' && r.supplier)) add(x[0] + ' missing' + (st >= 8 ? '' : ' (needed to book the purchase)'), x[1], st >= 8 ? 'e' : 'w'); });
+    if (r.delivered && st < 7) add('Has a delivery date but warehouse status is "' + (r.wh || 'not set') + '"', 'trip');
+    if (st >= 7 && !r.delivered) add('Delivered but no delivery date', 'trip');
     if (r.actual && r.delivered && r.delivered < r.actual) add('Delivery date is before the dispatch date', 'trip', 'e');
-    var seq = [['actual', 'dispatch'], ['dKsaArr', 'KSA arrival'], ['dKsa', 'KSA clearance'], ['dGhuArr', 'Ghuwaifat arrival'], ['dGhu', 'Ghuwaifat clearance'], ['delivered', 'delivery']], last = null;
+    var seq = [['actual', 'dispatch'], ['dFerry', 'ferry'], ['dKsaArr', 'KSA arrival'], ['dKsa', 'KSA clearance'], ['dGhuArr', 'Ghuwaifat arrival'], ['dGhu', 'Ghuwaifat clearance'], ['delivered', 'delivery']], last = null;
     seq.forEach(function (q) { var d = r[q[0]]; if (!d) return; if (last && d < last[0]) add('The ' + q[1] + ' date is before the ' + last[1] + ' date', 'trip'); last = [d, q[1]]; });
     var s = 0; itemsOf(r).forEach(function (i) { s += num(i.c); }); if (s && num(r.ctn) && num(r.ctn) !== s) add('Total CTN ' + nf(r.ctn) + ' does not match the products (' + nf(s) + ')', 'items');
     return out; }
@@ -85,18 +87,18 @@
   // ------------------------------------------------------------------ dashboard
   function scopeLabel() { return typeof month !== 'undefined' && month && month !== 'ALL' ? month : 'all months'; }
   function inScope(r) { return typeof egIn === 'function' ? egIn(r) : true; }
-  function stuck(r) { var s = stg(r), d = ST[s] && r[ST[s].d]; return s >= 1 && s <= 5 && d ? dd(d, today()) : null; }
+  function stuck(r) { var s = stg(r), d = ST[s] && r[ST[s].d]; return s >= 1 && s <= 6 && d ? dd(d, today()) : null; }
   function cardHtml(r) {
     var s = stg(r), its = itemsOf(r), late = typeof isOver === 'function' && isOver(r), sd = stuck(r), when = '';
-    if (s >= 1 && s <= 5) when = sd != null ? sd + ' d ' + (s === 2 || s === 4 ? 'at border' : 'on the road') : '';
+    if (s >= 1 && s <= 6) when = sd != null ? sd + ' d ' + (s === 3 || s === 5 ? 'at border' : s === 2 ? 'on the ferry' : 'on the road') : '';
     if (s === 0) when = r.sched ? 'Loading ' + dshow(r.sched) : 'No loading date';
-    if (s === 6) when = r.delivered ? 'Delivered ' + dshow(r.delivered) : 'Delivered';
-    var al = r.alert && s < 6 ? '<span class="egb ' + (late ? 'r' : /due/i.test(r.alert) ? 'o' : '') + '">' + esc(r.alert) + '</span>' : '';
+    if (s === 7) when = r.delivered ? 'Delivered ' + dshow(r.delivered) : 'Delivered';
+    var al = r.alert && s < 7 ? '<span class="egb ' + (late ? 'r' : /due/i.test(r.alert) ? 'o' : '') + '">' + esc(r.alert) + '</span>' : '';
     var nfix = checks(r).length;
     return '<div class="egc' + (late ? ' late' : '') + '"><div class="egc-m" data-ei="' + r._i + '" title="Open details"><div class="egc-t"><b>' + esc(ref(r)) + '</b>' + (r.container && r.vehicle ? '<span class="mu">' + esc(r.vehicle) + '</span>' : '') + '</div>' +
       '<div class="egc-s">' + esc(supName(r.supplier) || 'Supplier not entered') + (truckNo(r) ? ' <span class="egb g" title="Trucks on this invoice">Truck ' + truckNo(r) + (r.inv ? ' · ' + esc(r.inv) : '') + '</span>' : '') + '</div><div class="mu">' + esc((its[0] && its[0].n) || '') + (its.length > 1 ? ' +' + (its.length - 1) : '') + (ctnOf(r) ? ' · ' + nf(ctnOf(r)) + ' CTN' : '') + '</div>' +
       '<div class="egc-f"><span class="mu">' + esc(when) + '</span>' + al + (nfix ? '<span class="egb w" title="Needs fixing">⚠ ' + nfix + '</span>' : '') + '</div></div>' +
-      (can('egEdit') ? '<div class="egc-a">' + (s < 7 ? '<button type="button" class="p" data-egx="next" data-i="' + r._i + '">' + esc(STEP[s].b) + ' ▸</button>' : '') + '<button type="button" data-egx="edit" data-i="' + r._i + '" title="Edit">✎</button></div>' : '') + '</div>'; }
+      (can('egEdit') ? '<div class="egc-a">' + (s < 8 ? '<button type="button" class="p" data-egx="next" data-i="' + r._i + '">' + esc(STEP[s].b) + ' ▸</button>' : '') + '<button type="button" data-egx="edit" data-i="' + r._i + '" title="Edit">✎</button></div>' : '') + '</div>'; }
   var FOLD = (function () { try { return JSON.parse(localStorage.getItem('bst.egfold') || '{}') || {}; } catch (e) { return {}; } })();
   function cl(k) { return FOLD[k] ? ' egcl' : ''; }
   function ar(k) { return '<span class="egar" aria-hidden="true">' + (FOLD[k] ? '▸' : '▾') + '</span>'; }
@@ -104,27 +106,27 @@
     var p = document.querySelector('#egdash [data-egp="' + k + '"]'); if (!p) return; p.classList.toggle('egcl', !!FOLD[k]); var a = p.querySelector('[data-egtg="' + k + '"] .egar'); if (a) a.textContent = FOLD[k] ? '▸' : '▾'; }
   function render() {
     var host = $('egdash'); if (!host || !window.E || !E.rows) return;
-    var all = E.rows, sc = all.filter(inScope), open = all.filter(function (r) { return stg(r) <= 5; });
-    var road = all.filter(function (r) { var s = stg(r); return s === 1 || s === 3 || s === 5; }), border = all.filter(function (r) { var s = stg(r); return s === 2 || s === 4; });
-    var over = all.filter(function (r) { return typeof isOver === 'function' && isOver(r); }), delS = sc.filter(function (r) { return stg(r) >= 6; });
+    var all = E.rows, sc = all.filter(inScope), open = all.filter(function (r) { return stg(r) <= 6; });
+    var road = all.filter(function (r) { var s = stg(r); return s === 1 || s === 2 || s === 4 || s === 6; }), border = all.filter(function (r) { var s = stg(r); return s === 3 || s === 5; });
+    var over = all.filter(function (r) { return typeof isOver === 'function' && isOver(r); }), delS = sc.filter(function (r) { return stg(r) >= 7; });
     var ctnS = 0; sc.forEach(function (r) { ctnS += ctnOf(r); });
     var supDue = all.filter(function (r) { return r.supPay !== 'Completed' && isLead(r); }), frDue = all.filter(function (r) { return stg(r) >= 1 && r.frPay !== 'Completed'; });
     var sum = function (l, k) { var t = 0; l.forEach(function (r) { t += num(r[k]); }); return t; };
     var fixes = []; all.forEach(function (r) { checks(r).forEach(function (c) { fixes.push({ r: r, c: c }); }); });
     var kpi = function (t, v, sub, cls, act) { return '<div class="egk ' + (cls || '') + '"' + (act ? ' data-egk="' + act + '"' : '') + '><span>' + t + '</span><b>' + v + '</b><em>' + (sub || '') + '</em></div>'; };
-    var h = '<div class="egh"><div><h2>Egypt operations</h2><span class="mu">Egypt → KSA border → Ghuwaifat → warehouse · report date ' + esc(dlong(today())) + ' · showing ' + esc(scopeLabel()) + '</span></div><div class="egh-b">' +
+    var h = '<div class="egh"><div><h2>Egypt operations</h2><span class="mu">Egypt → Egypt border → ferry → KSA border → Ghuwaifat border → warehouse · report date ' + esc(dlong(today())) + ' · showing ' + esc(scopeLabel()) + '</span></div><div class="egh-b">' +
       (can('egEdit') ? '<button type="button" class="p" data-egx="new">+ New container</button>' : '') + '<button type="button" data-egx="report">🖨 Egypt report</button><button type="button" data-egk="fix"' + (fixes.length ? ' class="warnb"' : '') + '>⚠ Needs fixing (' + fixes.length + ')</button></div></div>';
-    h += '<div class="egks">' + kpi('Open shipments', open.length, 'not yet delivered', '', 'board') + kpi('On the road', road.length, 'to KSA / Ghuwaifat / warehouse', 'b', 'f:road') +
-      kpi('At the borders', border.length, 'KSA ' + all.filter(function (r) { return stg(r) === 2; }).length + ' · Ghuwaifat ' + all.filter(function (r) { return stg(r) === 4; }).length, 'o', 'f:port') +
+    h += '<div class="egks">' + kpi('Open shipments', open.length, 'not yet delivered', '', 'board') + kpi('On the road / ferry', road.length, 'to Egypt border ' + all.filter(function (r) { return stg(r) === 1; }).length + ' · ferry ' + all.filter(function (r) { return stg(r) === 2; }).length + ' · to Ghuwaifat ' + all.filter(function (r) { return stg(r) === 4; }).length + ' · to warehouse ' + all.filter(function (r) { return stg(r) === 6; }).length, 'b', 'f:road') +
+      kpi('At the borders', border.length, 'KSA ' + all.filter(function (r) { return stg(r) === 3; }).length + ' · Ghuwaifat ' + all.filter(function (r) { return stg(r) === 5; }).length, 'o', 'f:port') +
       kpi('Overdue', over.length, over.length ? 'past ETA, not delivered' : 'all on time', over.length ? 'r' : 'g', 'f:overdue') +
       kpi('Delivered', delS.length, scopeLabel(), 'g', 'f:delivered') + kpi('Cartons', nf(ctnS), 'CTN · ' + scopeLabel(), '', '') +
       kpi('Supplier payments due', supDue.length, '$ ' + nf(sum(supDue, 'invAmt')) + (supDue.some(function (r) { return !num(r.invAmt); }) ? ' + amounts missing' : ''), supDue.length ? 'o' : 'g', 'pay') +
       kpi('Freight payments due', frDue.length, '$ ' + nf(sum(frDue, 'frAmt')) + (frDue.some(function (r) { return !num(r.frAmt); }) ? ' + amounts missing' : ''), frDue.length ? 'o' : 'g', 'pay') + '</div>';
     // pipeline
     h += '<div class="pn' + cl('board') + '" id="eg-board" data-egp="board"><h3 class="egt" data-egtg="board">' + ar('board') + 'Shipment pipeline <span class="mu">every open shipment, all months · tap a card for details' + (can('egEdit') ? ', use the green button to move it to the next step' : '') + '</span></h3><div class="egpl">' +
-      ST.slice(0, 7).map(function (s, i) { var l = all.filter(function (r) { return stg(r) === i; }).sort(function (a, b) { return Number(isOver(b)) - Number(isOver(a)) || (stuck(b) || 0) - (stuck(a) || 0); });
+      ST.slice(0, 8).map(function (s, i) { var l = all.filter(function (r) { return stg(r) === i; }).sort(function (a, b) { return Number(isOver(b)) - Number(isOver(a)) || (stuck(b) || 0) - (stuck(a) || 0); });
         return '<div class="egcol"><div class="egcol-h" style="border-color:' + s.c + '"><b>' + esc(s.t) + '</b><span>' + l.length + '</span></div>' + (l.length ? l.map(cardHtml).join('') : '<div class="egempty">Nothing here</div>') + '</div>'; }).join('') +
-      '</div><div class="mu" style="margin-top:6px">Closed (purchase booked): ' + all.filter(function (r) { return stg(r) === 7; }).length + ' shipments.</div></div>';
+      '</div><div class="mu" style="margin-top:6px">Closed (purchase booked): ' + all.filter(function (r) { return stg(r) === 8; }).length + ' shipments.</div></div>';
     // payments + transit
     var payRow = function (r, kind) { var amt = kind === 'sup' ? r.invAmt : r.frAmt, st2 = kind === 'sup' ? r.supPay : r.frPay;
       return '<tr><td><a data-ei="' + r._i + '"><b>' + esc(ref(r)) + '</b></a><div class="mu">' + esc(r.month) + ' · INV ' + esc(r.inv || '-') + (kind === 'sup' && groupOf(r).length > 1 ? ' · ' + groupOf(r).length + ' trucks' : '') + '</div></td><td>' + esc(kind === 'sup' ? supName(r.supplier) || '-' : r.vehicle || '-') + '</td><td>' + esc(st2 || 'Unpaid') + '</td><td class="n">' + (num(amt) ? '$ ' + nf(amt) : '<span class="late">missing</span>') + '</td><td>' +
@@ -134,7 +136,7 @@
     h += '<div class="grid2"><div class="pn' + cl('pay') + '" id="eg-pay" data-egp="pay"><h3 class="egt" data-egtg="pay">' + ar('pay') + 'Payments due</h3><div class="egsub' + cl('paysup') + '" data-egp="paysup"><b class="egst" data-egtg="paysup">' + ar('paysup') + 'Supplier payments (' + supDue.length + ')</b>' + payT(supDue, 'sup') + '</div><div class="egsub' + cl('payfr') + '" data-egp="payfr"><b class="egst" data-egtg="payfr">' + ar('payfr') + 'Truck freight payments (' + frDue.length + ')</b>' + payT(frDue, 'fr') + '</div>' + '</div>';
     h += '<div class="pn' + cl('transit') + '" data-egp="transit"><h3 class="egt" data-egtg="transit">' + ar('transit') + 'Transit times <span class="mu">average days · ' + esc(scopeLabel()) + '</span></h3>' + transitHtml(sc) + '</div></div>';
     // needs fixing + suppliers
-    var fixL = fixes.filter(function (f) { return inScope(f.r) || stg(f.r) <= 6; });
+    var fixL = fixes.filter(function (f) { return inScope(f.r) || stg(f.r) <= 7; });
     h += '<div class="grid2"><div class="pn' + cl('fix') + '" id="eg-fix" data-egp="fix"><h3 class="egt" data-egtg="fix">' + ar('fix') + 'Needs fixing <span class="mu">' + fixL.length + ' issue(s) · shipments entered from 17 Nov 2026</span></h3>' +
       (fixL.length ? '<div class="egfx">' + fixL.map(function (f) { return '<div class="egfi ' + f.c.lvl + '"><span><b>' + esc(ref(f.r)) + '</b> <span class="mu">' + esc(f.r.month) + ' · #' + esc(f.r.sr) + '</span><br>' + esc(f.c.m) + '</span>' +
         (can('egEdit') ? '<button type="button" class="sm" data-egx="fix" data-sec="' + f.c.sec + '" data-i="' + f.r._i + '">Fix</button>' : '') + '</div>'; }).join('') + '</div>' : '<div class="mu">✓ No problems found.</div>') + '</div>';
@@ -151,14 +153,14 @@
       '<div class="mu" style="margin-top:6px">Border times fill in as you move shipments step by step; each step records its date.</div>'; }
   function supplierHtml(l) {
     var m = {}, o = []; l.forEach(function (r) { var k = supName(r.supplier) || '(supplier not entered)'; if (!m[k]) { m[k] = { n: 0, ctn: 0, del: 0, d2d: [], ot: 0, amt: 0, rf: 0, rc: 0 }; o.push(k); } var x = m[k]; x.n++; x.ctn += ctnOf(r); x.amt += num(r.invAmt); if (r.reefer && r.reefer !== 'Not a reefer (dry cargo)') { x.rc++; if (reeferBad(r)) x.rf++; }
-      if (stg(r) >= 6) { x.del++; var t = dd(r.actual, r.delivered); if (t != null && t >= 0) x.d2d.push(t); if (r.eta && r.delivered && r.delivered <= r.eta) x.ot++; } });
+      if (stg(r) >= 7) { x.del++; var t = dd(r.actual, r.delivered); if (t != null && t >= 0) x.d2d.push(t); if (r.eta && r.delivered && r.delivered <= r.eta) x.ot++; } });
     if (!o.length) return '<div class="mu">No shipments.</div>';
     o.sort(function (a, b) { return m[b].ctn - m[a].ctn; });
     return '<div class="tw"><table class="egtb"><thead><tr><th>Supplier</th><th class="n">Shipments</th><th class="n">CTN</th><th class="n">Invoice $</th><th class="n">Avg days</th><th class="n">On time</th><th class="n">Reefer issues</th></tr></thead><tbody>' + o.map(function (k) { var x = m[k];
       return '<tr><td>' + esc(k) + '</td><td class="n">' + x.n + '</td><td class="n">' + nf(x.ctn) + '</td><td class="n">' + (x.amt ? nf(x.amt) : '-') + '</td><td class="n">' + (x.d2d.length ? (x.d2d.reduce(function (a, b) { return a + b; }, 0) / x.d2d.length).toFixed(1) : '-') + '</td><td class="n">' + (x.del ? Math.round(x.ot / x.del * 100) + '%' : '-') + '</td><td class="n' + (x.rf ? ' late' : '') + '">' + (x.rc ? x.rf + ' / ' + x.rc : '-') + '</td></tr>'; }).join('') + '</tbody></table></div>'; }
   function reeferHtml(l, dash) {
     var chk = l.filter(function (r) { return r.reefer || (r.temp !== '' && r.temp != null); }), rf = chk.filter(function (r) { return r.reefer !== 'Not a reefer (dry cargo)'; });
-    var noRec = l.filter(function (r) { return stg(r) >= 7 && !r.reefer; }).length, noTxt = noRec ? noRec + ' booked shipment(s) have no reading (booked before this was added).' : '';
+    var noRec = l.filter(function (r) { return stg(r) >= 8 && !r.reefer; }).length, noTxt = noRec ? noRec + ' booked shipment(s) have no reading (booked before this was added).' : '';
     if (!chk.length) return '<div class="mu">No temperature readings yet. They are recorded when a shipment is marked <b>Purchase booked</b>. ' + noTxt + '</div>';
     var cnt = {}; chk.forEach(function (r) { var k = r.reefer || 'Condition not chosen'; cnt[k] = (cnt[k] || 0) + 1; });
     var tv = rf.filter(function (r) { return r.temp !== '' && r.temp != null && !isNaN(Number(r.temp)); }).map(function (r) { return Number(r.temp); });
@@ -169,7 +171,7 @@
       show.map(function (r) { return '<tr' + (reeferBad(r) ? ' class="egrf-bad"' : '') + '><td>' + (dash ? '<a data-ei="' + r._i + '"><b>' + esc(ref(r)) + '</b></a>' : '<b>' + esc(ref(r)) + '</b>') + '<div class="mu">' + esc(r.month) + ' · #' + esc(r.sr) + '</div></td><td>' + esc(supName(r.supplier) || '-') + '</td><td>' + esc(dshow(r.dPurchase) || '-') + '</td><td class="n">' + esc(tempTxt(r) || '-') + '</td><td>' + esc(r.reefer || '-') + '</td><td>' + esc(r.tempNote || '') + '</td></tr>'; }).join('') +
       '</tbody></table></div>' + (dash && rows.length > show.length ? '<div class="mu">Showing 15 of ' + rows.length + '. The full list is in 🖨 Egypt report.</div>' : '') + (noTxt ? '<div class="mu" style="margin-top:6px">' + noTxt + '</div>' : ''); }
   function trendHtml() {
-    var ms = E.months.map(function (m) { var l = E.rows.filter(function (r) { return r.month === m; }), c = 0; l.forEach(function (r) { c += ctnOf(r); }); return { m: m, n: l.length, c: c, d: l.filter(function (r) { return stg(r) >= 6; }).length }; }).filter(function (x) { return x.n; });
+    var ms = E.months.map(function (m) { var l = E.rows.filter(function (r) { return r.month === m; }), c = 0; l.forEach(function (r) { c += ctnOf(r); }); return { m: m, n: l.length, c: c, d: l.filter(function (r) { return stg(r) >= 7; }).length }; }).filter(function (x) { return x.n; });
     if (!ms.length) return '<div class="mu">No data.</div>';
     var mx = Math.max.apply(null, ms.map(function (x) { return x.c; })) || 1;
     return '<div class="egtr">' + ms.map(function (x) { return '<div class="egtr-r" data-egm="' + esc(x.m) + '"><span><b>' + esc(x.m) + '</b></span><div class="egtr-b"><i style="width:' + Math.max(2, x.c / mx * 100) + '%"></i></div><span class="n">' + x.n + ' shipments · ' + nf(x.c) + ' CTN · ' + x.d + ' delivered</span></div>'; }).join('') + '</div>'; }
@@ -186,7 +188,7 @@
   function save(r, v) { return new Promise(function (ok, no) { google.script.run.withSuccessHandler(ok).withFailureHandler(no).saveEgyptEntry({ month: r.month, v: v, row: r.row, orig: { sr: r.sr, container: r.container, inv: r.inv } }, window.APW); })
     .then(function (x) { if (typeof loadEg === 'function') loadEg(); return x; }); }
   function nextStep(r) {
-    var s = stg(r); if (s >= 7) return;
+    var s = stg(r); if (s >= 8) return;
     var opts = STEP.slice(s).map(function (x, k) { return '<option value="' + (s + k) + '"' + (k === 0 ? ' selected' : '') + '>' + esc(x.t) + '</option>'; }).join('');
     var body = '<div class="egm-now">Now: <b>' + esc(ST[s].t) + '</b></div><label>Move to<select id="egn-to">' + opts + '</select></label><label>Date<input type="date" id="egn-d" value="' + today() + '"></label>' +
       '<div id="egn-tr" class="egm-g"><label>Truck plate no.<input id="egn-veh" value="' + esc(r.vehicle || '') + '" placeholder="e.g. 1481"></label><label>Container no.<input id="egn-cont" value="' + esc(r.container || '') + '" placeholder="e.g. 8253"></label>' +
@@ -199,11 +201,11 @@
       var inv = m2.querySelector('#egn-inv').value.trim(); if (inv && inv !== (r.inv || '')) v.inv = inv;
       if (s === 0) { var veh = m2.querySelector('#egn-veh').value.trim(), ct = m2.querySelector('#egn-cont').value.trim().toUpperCase().replace(/\s+/g, '');
         if (veh) v.vehicle = veh; if (ct) v.container = ct; v.driver = m2.querySelector('#egn-drv').value.trim(); v.mobile = m2.querySelector('#egn-mob').value.trim(); if (!r.po) v.po = 'Placed'; }
-      if (to >= 6) { var tp = m2.querySelector('#egn-temp').value.trim(), rf = m2.querySelector('#egn-reef').value, need = reeferNeed(rf, tp); if (need) throw new Error(need); v.temp = tp; v.reefer = rf; v.tempNote = m2.querySelector('#egn-tn').value.trim(); }
-      if (to >= 6 && isNew(r)) { var miss = bookMissing(Object.assign({}, r, v)); if (miss.length) throw new Error('To book the purchase, first enter: ' + miss.map(function (x) { return x[0]; }).join(', ') + '. Use ✎ Edit on the card.'); }
+      if (to >= 7) { var tp = m2.querySelector('#egn-temp').value.trim(), rf = m2.querySelector('#egn-reef').value, need = reeferNeed(rf, tp); if (need) throw new Error(need); v.temp = tp; v.reefer = rf; v.tempNote = m2.querySelector('#egn-tn').value.trim(); }
+      if (to >= 7 && isNew(r)) { var miss = bookMissing(Object.assign({}, r, v)); if (miss.length) throw new Error('To book the purchase, first enter: ' + miss.map(function (x) { return x[0]; }).join(', ') + '. Use ✎ Edit on the card.'); }
       return save(r, v); });
     var tr = m.querySelector('#egn-tr'); tr.style.display = s === 0 ? '' : 'none';
-    var iw = function () { var t = Number(m.querySelector('#egn-to').value); m.querySelector('#egn-invw').style.display = !r.inv ? '' : 'none'; m.querySelector('#egn-rf').style.display = t >= 6 ? '' : 'none'; }; m.querySelector('#egn-to').addEventListener('change', iw); iw();
+    var iw = function () { var t = Number(m.querySelector('#egn-to').value); m.querySelector('#egn-invw').style.display = !r.inv ? '' : 'none'; m.querySelector('#egn-rf').style.display = t >= 7 ? '' : 'none'; }; m.querySelector('#egn-to').addEventListener('change', iw); iw();
     }
   function markPaid(r, kind) {
     var amtK = kind === 'sup' ? 'invAmt' : 'frAmt', body = '<label>Paid on<input type="date" id="egp-d" value="' + today() + '"></label><label>' + (kind === 'sup' ? 'Invoice amount to supplier ($)' : 'Freight amount ($)') + '<input type="number" min="0" step="any" id="egp-a" value="' + esc(r[amtK] || '') + '"></label>';
@@ -214,11 +216,11 @@
 
   // ------------------------------------------------------------------ entry form
   var SEC = [['order', '1 · Order & invoice'], ['items', '2 · Products'], ['truck', '3 · Trucks & containers'], ['trip', '4 · Journey & dates'], ['pay', '5 · Payments & notes']];
-  var STATUSROWS = [['Supplier PO', 'po', [['dPo', 'PO date']]], ['Loading & dispatch', 'loading', [['actual', 'Dispatched on']]], ['KSA border', 'ksa', [['dKsaArr', 'Arrived'], ['dKsa', 'Cleared']]],
+  var STATUSROWS = [['Supplier PO', 'po', [['dPo', 'PO date']]], ['Loading & dispatch', 'loading', [['actual', 'Dispatched on']]], ['Ferry Egypt → KSA', 'ferry', [['dFerry', 'Ferry departed']]], ['KSA border', 'ksa', [['dKsaArr', 'Arrived'], ['dKsa', 'Cleared']]],
     ['Ghuwaifat border (UAE)', 'ghu', [['dGhuArr', 'Arrived'], ['dGhu', 'Cleared']]], ['Warehouse delivery', 'wh', [['delivered', 'Delivered on']]], ['Purchase entry (system booking)', 'purchase', [['dPurchase', 'Booked on']]]];
   // a date implies a status; a finished status gets today's date if none
-  var IMPLY = { dPo: ['po', 'Placed'], actual: ['loading', 'Dispatched'], dKsaArr: ['ksa', 'Arrived'], dKsa: ['ksa', 'Cleared'], dGhuArr: ['ghu', 'Arrived'], dGhu: ['ghu', 'Cleared'], delivered: ['wh', 'Delivered'], dPurchase: ['purchase', 'Booked'], dSupPay: ['supPay', 'Completed'], dFrPay: ['frPay', 'Completed'] };
-  var DONE = { po: { Placed: 'dPo' }, loading: { Dispatched: 'actual' }, ksa: { Arrived: 'dKsaArr', Cleared: 'dKsa' }, ghu: { Arrived: 'dGhuArr', Cleared: 'dGhu' }, wh: { Delivered: 'delivered' }, purchase: { Booked: 'dPurchase' }, supPay: { Completed: 'dSupPay' }, frPay: { Completed: 'dFrPay' } };
+  var IMPLY = { dPo: ['po', 'Placed'], actual: ['loading', 'Dispatched'], dFerry: ['ferry', 'On Ferry'], dKsaArr: ['ksa', 'Arrived'], dKsa: ['ksa', 'Cleared'], dGhuArr: ['ghu', 'Arrived'], dGhu: ['ghu', 'Cleared'], delivered: ['wh', 'Delivered'], dPurchase: ['purchase', 'Booked'], dSupPay: ['supPay', 'Completed'], dFrPay: ['frPay', 'Completed'] };
+  var DONE = { po: { Placed: 'dPo' }, loading: { Dispatched: 'actual' }, ferry: { 'On Ferry': 'dFerry' }, ksa: { Arrived: 'dKsaArr', Cleared: 'dKsa' }, ghu: { Arrived: 'dGhuArr', Cleared: 'dGhu' }, wh: { Delivered: 'delivered' }, purchase: { Booked: 'dPurchase' }, supPay: { Completed: 'dSupPay' }, frPay: { Completed: 'dFrPay' } };
   var RANK = { ksa: ['', 'En Route', 'Arrived', 'Cleared'], ghu: ['', 'En Route', 'Arrived', 'Cleared'] };
   function openForm(r, pre, focus) {
     if (!window.E) { alert('Egypt data is still loading.'); return; }
@@ -289,11 +291,9 @@
     fm.onchange = function (e) { var t = e.target, k = t.dataset.e; if (!k) return;
       if (IMPLY[k] && t.value) { var s2 = Q(IMPLY[k][0]), want = IMPLY[k][1], rk = RANK[IMPLY[k][0]]; if (s2 && (!rk || rk.indexOf(s2.value) < rk.indexOf(want))) { if (![].some.call(s2.options, function (x) { return x.value === want; })) s2.insertAdjacentHTML('beforeend', '<option>' + want + '</option>'); s2.value = want; } }
       if (DONE[k] && DONE[k][t.value]) { var dk = DONE[k][t.value], de = Q(dk); if (de && !de.value) { de.value = today(); de.classList.add('xfill'); } }
-      if (k === 'loading' && t.value === 'Dispatched' && !Q('ksa').value) Q('ksa').value = 'En Route';
-      if (k === 'ksa' && t.value === 'Cleared' && !Q('ghu').value) Q('ghu').value = 'En Route';
       live(); };
     fm.querySelector('.egf-nav').onclick = function (e) { var b = e.target.closest('[data-egs]'); if (b) $('egs-' + b.dataset.egs).scrollIntoView({ behavior: 'smooth', block: 'start' }); };
-    function posOf(v) { var dl = v.wh === 'Delivered' || v.wh === 'Arrived'; return v.purchase === 'Booked' ? 'Closed - Purchase Booked' : dl ? 'Delivered to Warehouse' : v.ghu === 'Cleared' ? 'Out for Delivery' : v.ghu === 'Arrived' ? 'At Ghuwaifat Border' : (v.ksa === 'Cleared' || v.ghu === 'En Route') ? 'En Route to Ghuwaifat' : v.ksa === 'Arrived' ? 'At KSA Border' : (v.loading === 'Dispatched' || v.ksa === 'En Route') ? 'En Route to KSA Border' : 'Pre-Shipment'; }
+    function posOf(v) { var dl = v.wh === 'Delivered' || v.wh === 'Arrived'; return v.purchase === 'Booked' ? 'Closed - Purchase Booked' : dl ? 'Delivered to Warehouse' : (v.ghu === 'Cleared' || v.dGhu) ? 'On the Road to Warehouse' : (v.ghu === 'Arrived' || v.dGhuArr) ? 'At Ghuwaifat Border' : (v.ksa === 'Cleared' || v.dKsa) ? 'En Route to Ghuwaifat' : (v.ksa === 'Arrived' || v.dKsaArr) ? 'At KSA Border' : (v.ferry === 'On Ferry' || v.dFerry) ? 'Ferry Transit Egypt to KSA' : (v.loading === 'Dispatched' || v.actual) ? 'En Route to Egypt Border' : 'Pre-Shipment'; }
     function collect(quiet) { var v = {}; fm.querySelectorAll('[data-e]').forEach(function (e) { v[e.dataset.e] = String(e.value || '').trim(); }); v.container = v.container.toUpperCase().replace(/\s+/g, '');
       var lines = [], bs = []; fm.querySelectorAll('#eits .er').forEach(function (x) { var n = x.querySelector('.in').value.trim(), p = x.querySelector('.ip').value.trim(), c = x.querySelector('.ic').value.trim(), l = x.querySelector('.il').value.trim(), b = x.querySelector('.ib').value.trim().replace(/[\[\]]/g, '');
         if (!n) return; lines.push(n + (p ? ' (' + p + ')' : '') + (c ? ': ' + Number(c).toLocaleString('en-US') + ' ctn' : '') + (l ? ' / ' + l + ' plt' : '') + (b ? ' [Batch: ' + b + ']' : '')); if (b && bs.indexOf(b) < 0) bs.push(b); });
@@ -326,7 +326,7 @@
 
   // ------------------------------------------------------------------ details: journey timeline with dates
   function timeline(r) {
-    var s = stg(r), pts = [['Loading planned', r.sched, 0], ['Dispatched from Egypt', r.actual, 1], ['Arrived KSA border', r.dKsaArr, 2], ['Cleared KSA border', r.dKsa, 3], ['Arrived Ghuwaifat', r.dGhuArr, 4], ['Cleared Ghuwaifat', r.dGhu, 5], ['Delivered to warehouse', r.delivered, 6], ['Purchase booked', r.dPurchase, 7]];
+    var s = stg(r), pts = [['Loading planned', r.sched, 0], ['Dispatched from Egypt', r.actual, 1], ['Ferry Egypt → KSA', r.dFerry, 2], ['Arrived KSA border', r.dKsaArr, 3], ['Cleared KSA border', r.dKsa, 4], ['Arrived Ghuwaifat', r.dGhuArr, 5], ['Cleared Ghuwaifat', r.dGhu, 6], ['Delivered to warehouse', r.delivered, 7], ['Purchase booked', r.dPurchase, 8]];
     return '<div class="egtl">' + pts.map(function (p, i) { var done = i === 0 ? s >= 1 || !!p[1] : s >= p[2], prev = i ? pts[i - 1][1] : null, gap = p[1] && prev ? dd(prev, p[1]) : null;
       return '<div class="egtl-i ' + (done ? 'd' : s === p[2] - 1 ? 'n' : '') + '"><i></i><span><b>' + esc(p[0]) + '</b><br><span class="mu">' + (p[1] ? esc(dlong(p[1])) + (gap != null && gap >= 0 ? ' · ' + gap + ' d' : '') : done ? 'done · no date' : '—') + '</span></span></div>'; }).join('') + '</div>' +
       '<div class="ms" style="margin-top:8px"><span class="chip ' + (r.supPay === 'Completed' ? 'cg' : 'co') + '">Supplier payment: ' + esc(r.supPay || 'Not updated') + (r.dSupPay ? ' · ' + esc(dlong(r.dSupPay)) : '') + '</span> <span class="chip ' + (r.frPay === 'Completed' ? 'cg' : 'co') + '">Freight payment: ' + esc(r.frPay || 'Not updated') + (r.dFrPay ? ' · ' + esc(dlong(r.dFrPay)) : '') + '</span>' + (r.reefer || tempTxt(r) ? ' <span class="chip ' + (reeferBad(r) ? 'cr' : 'cg') + '">🌡 ' + esc([tempTxt(r), r.reefer].filter(Boolean).join(' · ')) + (r.tempNote ? ' · ' + esc(r.tempNote) : '') + '</span>' : '') + '</div>'; }
@@ -346,17 +346,17 @@
   function reportHtml(per) {
     var l = E.rows.filter(function (r) { return per === 'ALL' || r.month === per; }), ctn = 0; l.forEach(function (r) { ctn += ctnOf(r); });
     var sum = function (x, k) { var t = 0; x.forEach(function (r) { t += num(r[k]); }); return t; };
-    var del = l.filter(function (r) { return stg(r) >= 6; }), over = l.filter(function (r) { return isOver(r); }), supDue = l.filter(function (r) { return r.supPay !== 'Completed'; }), frDue = l.filter(function (r) { return stg(r) >= 1 && r.frPay !== 'Completed'; });
+    var del = l.filter(function (r) { return stg(r) >= 7; }), over = l.filter(function (r) { return isOver(r); }), supDue = l.filter(function (r) { return r.supPay !== 'Completed'; }), frDue = l.filter(function (r) { return stg(r) >= 1 && r.frPay !== 'Completed'; });
     var fix = 0; l.forEach(function (r) { fix += checks(r).length; });
-    var k = [['Shipments', l.length], ['Cartons (CTN)', nf(ctn)], ['Delivered', del.length], ['In transit / at borders', l.filter(function (r) { var s = stg(r); return s >= 1 && s <= 5; }).length], ['Overdue', over.length],
+    var k = [['Shipments', l.length], ['Cartons (CTN)', nf(ctn)], ['Delivered', del.length], ['In transit / at borders', l.filter(function (r) { var s = stg(r); return s >= 1 && s <= 6; }).length], ['Overdue', over.length],
       ['Invoice value', '$ ' + nf(sum(l, 'invAmt'))], ['Freight', '$ ' + nf(sum(l, 'frAmt'))], ['Supplier payments due', supDue.length + ' · $ ' + nf(sum(supDue, 'invAmt'))], ['Freight payments due', frDue.length + ' · $ ' + nf(sum(frDue, 'frAmt'))], ['Data issues', fix]];
     var rows = l.slice().sort(function (a, b) { return (a.month === b.month ? 0 : E.months.indexOf(a.month) - E.months.indexOf(b.month)) || num(a.sr) - num(b.sr); });
     return '<div class="egr-h"><div><h1>Egypt import shipments report</h1><div>Baniyas Spike Trading · ' + esc(per === 'ALL' ? 'All months' : per) + ' · printed ' + esc(dlong(today())) + '</div></div></div>' +
       '<div class="egr-k">' + k.map(function (x) { return '<div><span>' + x[0] + '</span><b>' + x[1] + '</b></div>'; }).join('') + '</div>' +
-      '<h3>Shipments</h3><table class="egr-t"><thead><tr><th>#</th><th>Month</th><th>Container / truck</th><th>Supplier</th><th>Invoice</th><th>Products</th><th class="n">CTN</th><th>Dispatched</th><th>KSA cleared</th><th>Ghuwaifat cleared</th><th>Delivered</th><th class="n">Days</th><th>Status</th></tr></thead><tbody>' +
+      '<h3>Shipments</h3><table class="egr-t"><thead><tr><th>#</th><th>Month</th><th>Container / truck</th><th>Supplier</th><th>Invoice</th><th>Products</th><th class="n">CTN</th><th>Dispatched</th><th>Ferry</th><th>KSA cleared</th><th>Ghuwaifat cleared</th><th>Delivered</th><th class="n">Days</th><th>Status</th></tr></thead><tbody>' +
       rows.map(function (r) { var t = dd(r.actual, r.delivered); return '<tr><td>' + esc(r.sr) + '</td><td>' + esc(r.month) + '</td><td>' + esc(r.container || '-') + (r.vehicle ? '<br><small>' + esc(r.vehicle) + '</small>' : '') + '</td><td>' + esc(supName(r.supplier) || '-') + '</td><td>' + esc(r.inv || '-') + '</td><td>' +
-        itemsOf(r).map(function (i) { return esc(i.n) + (i.b ? ' <small>(' + esc(i.b) + ')</small>' : ''); }).join('<br>') + '</td><td class="n">' + nf(ctnOf(r)) + '</td><td>' + esc(dshow(r.actual) || '-') + '</td><td>' + esc(dshow(r.dKsa) || (stg(r) >= 3 ? '✓' : '-')) + '</td><td>' + esc(dshow(r.dGhu) || (stg(r) >= 5 ? '✓' : '-')) + '</td><td>' + esc(dshow(r.delivered) || '-') + '</td><td class="n">' + (t != null && t >= 0 ? t : '') + '</td><td>' + esc(ST[stg(r)].s) + (isOver(r) ? ' · <b>' + esc(r.alert) + '</b>' : '') + '</td></tr>'; }).join('') +
-      '<tr class="tot"><td colspan="6">Total ' + l.length + ' shipments</td><td class="n">' + nf(ctn) + '</td><td colspan="6"></td></tr></tbody></table>' +
+        itemsOf(r).map(function (i) { return esc(i.n) + (i.b ? ' <small>(' + esc(i.b) + ')</small>' : ''); }).join('<br>') + '</td><td class="n">' + nf(ctnOf(r)) + '</td><td>' + esc(dshow(r.actual) || '-') + '</td><td>' + esc(dshow(r.dFerry) || (stg(r) >= 2 ? '✓' : '-')) + '</td><td>' + esc(dshow(r.dKsa) || (stg(r) >= 4 ? '✓' : '-')) + '</td><td>' + esc(dshow(r.dGhu) || (stg(r) >= 6 ? '✓' : '-')) + '</td><td>' + esc(dshow(r.delivered) || '-') + '</td><td class="n">' + (t != null && t >= 0 ? t : '') + '</td><td>' + esc(ST[stg(r)].s) + (isOver(r) ? ' · <b>' + esc(r.alert) + '</b>' : '') + '</td></tr>'; }).join('') +
+      '<tr class="tot"><td colspan="6">Total ' + l.length + ' shipments</td><td class="n">' + nf(ctn) + '</td><td colspan="7"></td></tr></tbody></table>' +
       '<div class="egr-2"><div><h3>Transit times</h3>' + transitHtml(l) + '</div><div><h3>Suppliers</h3>' + supplierHtml(l) + '</div></div>' +
       '<h3>Reefer & temperature at booking</h3>' + reeferHtml(l, false) +
       '<h3>Payments due</h3><table class="egr-t"><thead><tr><th>Shipment</th><th>Supplier</th><th>Supplier payment</th><th class="n">Invoice $</th><th>Freight payment</th><th class="n">Freight $</th></tr></thead><tbody>' +
@@ -388,7 +388,7 @@
     '.egf-sec{border:1px solid var(--bd);border-radius:12px;padding:12px;margin-top:12px;scroll-margin-top:60px}.egf-sec h3{margin:0 0 8px;font-size:14px;display:flex;justify-content:space-between;align-items:center;gap:8px}.egf-sec h3 .mu{font-weight:400;font-size:12px;flex:1}',
     '.egj-r{display:grid;grid-template-columns:minmax(150px,1.2fr) minmax(120px,1fr) repeat(2,minmax(130px,1fr));gap:8px;align-items:end;padding:6px 0;border-bottom:1px dashed var(--bd)}.egj-l{font-weight:600;font-size:13px;align-self:center}.egj-d{font-size:12px}',
     '.egf-chk{margin-top:12px;padding:10px 12px;border-radius:10px;background:#f6f8fa;font-size:13px}.egf-chk .e{color:var(--er)}.egf-chk .w{color:#8a6100}.egf-foot{position:sticky;bottom:-1px;background:#fff;display:flex;justify-content:space-between;gap:8px;padding:12px 0 2px;margin-top:10px;border-top:1px solid var(--bd)}',
-    '.egtl{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:6px}.egtl-i{display:flex;gap:8px;font-size:12px;align-items:flex-start}.egtl-i i{width:12px;height:12px;border-radius:50%;border:2px solid #c3cad5;margin-top:2px;flex:none}.egtl-i.d i{background:var(--ac);border-color:var(--ac)}.egtl-i.n i{border-color:var(--bl);box-shadow:0 0 0 3px #dbe7ff}',
+    '.egtl{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:6px}.egtl-i{display:flex;gap:8px;font-size:12px;align-items:flex-start}.egtl-i i{width:12px;height:12px;border-radius:50%;border:2px solid #c3cad5;margin-top:2px;flex:none}.egtl-i.d i{background:var(--ac);border-color:var(--ac)}.egtl-i.n i{border-color:var(--bl);box-shadow:0 0 0 3px #dbe7ff}',
     '#ovegr{position:fixed;inset:0;background:#e9edf2;z-index:95;overflow:auto;display:none}.egr-bar{position:sticky;top:0;background:#fff;display:flex;gap:8px;align-items:center;padding:10px 14px;border-bottom:1px solid var(--bd);flex-wrap:wrap}.egr-bar b{flex:1}',
     '.egr-doc{background:#fff;max-width:1100px;margin:16px auto;padding:24px;font-size:12px}.egr-h h1{margin:0 0 4px;font-size:20px}.egr-k{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin:14px 0}.egr-k div{border:1px solid var(--bd);border-radius:8px;padding:8px}.egr-k span{display:block;color:var(--mu);font-size:11px}.egr-k b{font-size:15px}',
     '.egr-t{width:100%;border-collapse:collapse;margin-bottom:12px}.egr-t th,.egr-t td{border:1px solid #d5dbe3;padding:4px 6px;text-align:left;vertical-align:top}.egr-t th{background:#f1f4f7;font-size:11px;white-space:normal}.egr-t td{white-space:normal}.egr-t .n{text-align:right}.egr-t tr.tot td{font-weight:700;background:#f6f8fa}.egr-2{display:grid;grid-template-columns:1fr 1fr;gap:16px}.egr-doc h3{margin:14px 0 6px;font-size:14px}',
