@@ -837,10 +837,10 @@ var FEG=[['sr','SR no.','number'],['sched','Planned dispatch date (Egypt)','date
 var MSL={po:'Supplier PO status',supPay:'Supplier payment (Advance / Balance)',frPay:'Freight payment (Truck)',loading:'Loading & dispatch',ksa:'KSA border clearance',ghu:'Ghuwaifat border clearance (UAE)',wh:'Warehouse delivery',purchase:'Purchase entry (system booking)'};
 var EGEDIT=null,EITEMS=false;
 function egAddItem(it){it=it||{};var d=document.createElement('div');d.className='er';
- d.innerHTML='<label>Item<input class="in" placeholder="e.g. Green Peas"></label><label>Pack size<input class="ip" placeholder="e.g. 4 x 2.5 kg"></label><label>Batch no.<input class="ib" placeholder="e.g. 2611A"></label><label>CTN<input class="ic" type="number" min="0" step="any"></label><label>Pallets<input class="il" type="number" min="0" step="any"></label><button type="button" class="x">✕</button>';
+ d.innerHTML='<label>Item<input class="in" placeholder="e.g. Green Peas"></label><label>Pack size<input class="ip" placeholder="e.g. 4 x 2.5 kg"></label><label>Batch no.<input class="ib" placeholder="e.g. 2611A"></label><label>CTN<input class="ic" type="text" inputmode="decimal" autocomplete="off" data-num="1"></label><label>Pallets<input class="il" type="text" inputmode="decimal" autocomplete="off" data-num="1"></label><button type="button" class="x">✕</button>';
  d.querySelector('.in').value=it.n||'';d.querySelector('.ip').value=it.p||'';d.querySelector('.ib').value=it.b||'';d.querySelector('.ic').value=it.c||'';d.querySelector('.il').value=it.l||'';
  d.querySelector('.x').onclick=function(){d.remove();EITEMS=true;DIRTY.ov3=true;egTotals()};$('eits').appendChild(d)}
-function egTotals(){var c=0,l=0;document.querySelectorAll('#eits .er').forEach(function(r){c+=Number(r.querySelector('.ic').value)||0;l+=Number(r.querySelector('.il').value)||0});
+function egTotals(){var N=function(v){return Number(window.BSTEG&&BSTEG.numClean?BSTEG.numClean(v):v)||0},c=0,l=0;document.querySelectorAll('#eits .er').forEach(function(r){c+=N(r.querySelector('.ic').value);l+=N(r.querySelector('.il').value)});
  var ec=document.querySelector('#eform [data-e="ctn"]'),el=document.querySelector('#eform [data-e="pallets"]');if(ec&&!ec.dataset.man)ec.value=c||'';if(el&&!el.dataset.man)el.value=l||''}
 function egCols(){var m=$('ef-m').value,cols=((E.cols&&E.cols[m])||[]).concat(['inv','invAmt','frAmt','poNo']);
  document.querySelectorAll('#eform [data-fk]').forEach(function(l){l.style.display=cols.indexOf(l.dataset.fk)>=0?'':'none'});
