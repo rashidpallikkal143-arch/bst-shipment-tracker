@@ -29,16 +29,21 @@
     // trucks / containers that share one invoice
     'grp',
     // ferry Egypt -> KSA
-    'ferry', 'dFerry'];
-  var EG_NUM = { sr: 1, ctn: 1, pallets: 1, invAmt: 1, frAmt: 1, temp: 1 };
+    'ferry', 'dFerry',
+    // real route: Egypt customs (Safaga) and the KSA exit border (Al Batha); manual ETA; free time per border (days, end date)
+    'egc', 'dEgcArr', 'dEgc', 'bat', 'dBatArr', 'dBat', 'etaManual',
+    'ftEgc', 'feEgc', 'ftKsa', 'feKsa', 'ftBat', 'feBat', 'ftGhu', 'feGhu'];
+  var EG_NUM = { sr: 1, ctn: 1, pallets: 1, invAmt: 1, frAmt: 1, temp: 1, ftEgc: 1, ftKsa: 1, ftBat: 1, ftGhu: 1 };
   var INSP_KEYS = ['id', 'ref', 'invoice', 'level', 'product', 'status', 'authority', 'date', 'result', 'clearance', 'clearDate', 'action', 'owner', 'due', 'remarks', 'updated', 'by'];
   var MX_KEYS = ['id', 'month', 'container', 'inv', 'invDate', 'desc', 'amount', 'paid', 'status', 'payDate', 'mode', 'ref', 'due', 'remarks', 'updated'];
   var DONE = ['Delivered to warehouse', 'Purchase not booked', 'Purchase booked'];
   var DEFAULT_SETTINGS = {
     transitDays: 8,
+    // free days a truck may stay at each border before charges (editable in the Egypt dashboard)
+    egFree: { egc: 2, ksa: 2, bat: 1, ghu: 2 },
     egMonths: ['OCT 2026', 'NOV 2026', 'DEC 2026'],
     egLists: { po: ['Not Placed', 'Placed'], supPay: ['Unpaid', 'Pending', 'Initiated', 'Completed'], frPay: ['Unpaid', 'Pending', 'Initiated', 'Completed'],
-      loading: ['Scheduled', 'Dispatched'], ferry: ['On Ferry'], ksa: ['En Route', 'Arrived', 'Cleared'], ghu: ['En Route', 'Arrived', 'Cleared'], wh: ['Arrived', 'Delivered'], purchase: ['Not Booked', 'Booked'] },
+      loading: ['Scheduled', 'Dispatched'], egc: ['Arrived', 'Cleared'], ferry: ['On Ferry'], bat: ['Arrived', 'Cleared'], ksa: ['En Route', 'Arrived', 'Cleared'], ghu: ['En Route', 'Arrived', 'Cleared'], wh: ['Arrived', 'Delivered'], purchase: ['Not Booked', 'Booked'] },
     rx: {
       stages: ['PO issued to supplier', 'Supplier confirmed / ready', 'Shipping documents received', 'Booking confirmed', 'Loaded & departed', 'In transit', 'Arrived at port / border',
         'Port release (DO / free time)', 'Customs declaration (Bayan) submitted', 'Duty paid & cleared', 'Transport to warehouse', 'Delivered to warehouse', 'Purchase not booked', 'Purchase booked'],
@@ -179,8 +184,8 @@
   var can = function (r) { return !!(ME && ME.active !== false && ME.rights && (ME.rights.admin || ME.rights[r])); };
   var need = function (r) { if (!can(r)) throw err('You do not have permission for this. Ask your admin to give you the right.'); };
   function loadSettings() { return S.db.get('settings', 'main').then(function (x) { var d = JSON.parse(JSON.stringify(DEFAULT_SETTINGS)); x = x || {};
-    ['transitDays', 'egMonths', 'egLists', 'rx', 'track'].forEach(function (k) { if (x[k] !== undefined && x[k] !== null) d[k] = x[k]; });
-    d.rx = Object.assign({}, DEFAULT_SETTINGS.rx, d.rx || {}); d.egLists = Object.assign({}, DEFAULT_SETTINGS.egLists, d.egLists || {}); d.track = d.track || DEFAULT_SETTINGS.track; SET = d; return d; }); }
+    ['transitDays', 'egMonths', 'egLists', 'rx', 'track', 'egFree'].forEach(function (k) { if (x[k] !== undefined && x[k] !== null) d[k] = x[k]; });
+    d.rx = Object.assign({}, DEFAULT_SETTINGS.rx, d.rx || {}); d.egLists = Object.assign({}, DEFAULT_SETTINGS.egLists, d.egLists || {}); d.track = d.track || DEFAULT_SETTINGS.track; d.egFree = Object.assign({}, DEFAULT_SETTINGS.egFree, d.egFree || {}); SET = d; return d; }); }
   function loadMe(uid) { return S.db.get('users', uid).then(function (u) {
     if (!u) throw err('This login has no user profile. Ask your admin to set up your user ID.');
     if (u.archived) throw err('The admin has changed this login. Ask them for your new user ID and password.');
@@ -199,13 +204,18 @@
   // ------------------------------------------------------------------ Egypt
   function egCompute(r) {
     var o = Object.assign({}, r), t = SET.transitDays, td = today();
-    var base = o.actual || o.sched; o.eta = base ? addDays(base, t) : (o.etaManual || '');
+    // ETA typed by the user wins; otherwise ATD (or ETD) + transit days
+    var base = o.actual || o.sched; o.eta = o.etaManual || (base ? addDays(base, t) : '');
     var dl = o.wh === 'Delivered' || o.wh === 'Arrived';
-    // route: dispatch -> road to the Egypt border (port) -> ferry Egypt to KSA -> KSA border -> road to Ghuwaifat -> Ghuwaifat border -> road to the warehouse -> delivered
-    // a truck only moves forward on a status or date that says so (an 'En Route' left in a later column does not count)
-    o.position = o.purchase === 'Booked' ? 'Closed - Purchase Booked' : dl ? 'Delivered to Warehouse' : (o.ghu === 'Cleared' || o.dGhu) ? 'On the Road to Warehouse' : (o.ghu === 'Arrived' || o.dGhuArr) ? 'At Ghuwaifat Border'
-      : (o.ksa === 'Cleared' || o.dKsa) ? 'En Route to Ghuwaifat' : (o.ksa === 'Arrived' || o.dKsaArr) ? 'At KSA Border' : (o.ferry === 'On Ferry' || o.dFerry) ? 'Ferry Transit Egypt to KSA'
-      : (o.loading === 'Dispatched' || o.actual) ? 'En Route to Egypt Border' : o.loading === 'Scheduled' ? 'Awaiting Loading' : 'Pre-Shipment';
+    // route: supplier warehouse -> road to Safaga port -> Egypt customs -> ferry Safaga to Duba -> KSA entry border (Duba) -> across Saudi Arabia
+    //        -> KSA exit border (Al Batha) -> Ghuwaifat (UAE customs) -> road to the warehouse -> delivered
+    // a truck only moves forward on a status or date for that step (an 'En Route' left in a later column does not count)
+    var A = function (st, d) { return st === 'Arrived' || !!d; }, C = function (st, d) { return st === 'Cleared' || !!d; };
+    o.position = o.purchase === 'Booked' ? 'Closed - Purchase Booked' : dl ? 'Delivered to Warehouse' : C(o.ghu, o.dGhu) ? 'On the Road to Warehouse'
+      : (A(o.ghu, o.dGhuArr) || C(o.bat, o.dBat)) ? 'At Ghuwaifat Border' : A(o.bat, o.dBatArr) ? 'At KSA Exit Border (Al Batha)'
+      : C(o.ksa, o.dKsa) ? 'En Route Across KSA' : A(o.ksa, o.dKsaArr) ? 'At KSA Entry Border (Duba)'
+      : (o.ferry === 'On Ferry' || o.dFerry || C(o.egc, o.dEgc)) ? 'Ferry Transit Egypt to KSA' : A(o.egc, o.dEgcArr) ? 'At Egypt Customs (Safaga)'
+      : (o.loading === 'Dispatched' || o.actual) ? 'En Route to Egypt Port' : o.loading === 'Scheduled' ? 'Awaiting Loading' : 'Pre-Shipment';
     o.milestones = ((o.po === 'Placed') + (o.supPay === 'Completed') + (o.frPay === 'Completed') + (o.loading === 'Dispatched') + (o.ksa === 'Cleared') + (o.ghu === 'Cleared') + dl + (o.purchase === 'Booked')) / 8;
     if (!o.eta) o.alert = ''; else if (dl) o.alert = 'Delivered'; else { var n = dayDiff(o.eta, td); o.alert = n < 0 ? 'Overdue ' + (-n) + ' days' : n === 0 ? 'Due today' : 'Due in ' + n + ' days'; }
     return o;
@@ -444,8 +454,9 @@
 
   // ------------------------------------------------------------------ settings, import, backup
   API.getSettings = function () { if (!ME) throw err('Sign in first.'); return loadSettings(); };
-  API.saveSettings = function (x) { need('settings'); var up = {}; ['transitDays', 'egMonths', 'egLists', 'rx'].forEach(function (k) { if (x[k] !== undefined) up[k] = x[k]; });
+  API.saveSettings = function (x) { need('settings'); var up = {}; ['transitDays', 'egMonths', 'egLists', 'rx', 'egFree'].forEach(function (k) { if (x[k] !== undefined) up[k] = x[k]; });
     if (up.transitDays !== undefined) { up.transitDays = Number(up.transitDays); if (!(up.transitDays >= 0 && up.transitDays <= 90)) throw err('Transit days must be a number from 0 to 90.'); }
+    if (up.egFree) { var f = {}; ['egc', 'ksa', 'bat', 'ghu'].forEach(function (k) { var n = Number(up.egFree[k]); if (!(n >= 0 && n <= 60)) throw err('Free days must be a number from 0 to 60.'); f[k] = n; }); up.egFree = f; }
     return S.db.merge('settings', 'main', up).then(loadSettings); };
   function fromSheets(j) { // file made by exportForNewApp() in the old Google Apps Script
     var out = { settings: {}, eg: [], rx: [], insp: [], matex: [] }, e = j.egypt || {}, g = j.global || {};
