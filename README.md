@@ -156,3 +156,12 @@ Route steps: planned (ETD) → on the road to Safaga port (ATD) → Egypt custom
 ETD = planned dispatch (`sched`), ATD = actual dispatch (`actual`), ETA = typed ETA (`etaManual`) or ATD/ETD + transit days, ATA = delivery date (`delivered`).
 Free time: each border has free days (default per border in settings `egFree`, changeable from the dashboard panel *Free time at borders*; a shipment can have its own free days `ft*` or end date `fe*`). Trucks at a border show days left / days over on their cards, in the lists, details and the Egypt report (with a summary of cleared borders and days over free time).
 Fields added: egc, dEgcArr, dEgc, bat, dBatArr, dBat, etaManual, ftEgc/feEgc, ftKsa/feKsa, ftBat/feBat, ftGhu/feGhu. Past delivered shipments are unchanged; trucks already on the way continue from their current step.
+
+## Driver updates on WhatsApp (morning round)
+
+- Every truck on the way has a green **WhatsApp** button (pipeline card, details view, Morning round list). It opens WhatsApp to the driver with a ready Arabic + English message and the truck's own update link (`driver.html?t=…`).
+- The driver mobile must include the country code (`+20…`, `+966…`, `+971…`). An Egyptian number typed as `01xxxxxxxxx` is turned into `+20` automatically.
+- The driver opens the link (no login), taps where he is (Safaga customs, ferry, Duba, Al Batha, Ghuwaifat, warehouse, or "delay / problem"), can share his GPS location and a note, and sends.
+- Replies arrive in **Driver updates** on the Egypt dashboard. **Apply ▸** moves the shipment forward to that step with the date (never backwards); **Dismiss** ignores it. 📍 Map opens the driver's location.
+- **Morning round · 9:00 UAE** lists every truck on the way, who was asked today and the last driver update. From 9:00 Dubai time a banner shows how many trucks are not asked yet. "🔔 Remind me at 9:00" turns on a browser notification (while the app is open).
+- Links are stored in `drvlinks`, replies in `driverUpdates` (see `firestore.rules`: anyone with a valid link can only add a new update for that truck).

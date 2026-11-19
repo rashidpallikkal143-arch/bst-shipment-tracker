@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#04512c">
+<title>تحديث الشحنة · Shipment update · BST</title>
+<style>
+  :root{--ac:#00a651;--acd:#007a3d;--tx:#111827;--mu:#6b7280;--bd:#e5e7eb;--er:#d93025}
+  *{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Arabic",Tahoma,sans-serif;background:#f3f6f4;color:var(--tx)}
+  .hd{background:radial-gradient(circle at 30% 0%,#0b8a4b 0%,#04512c 60%,#022f1a 100%);color:#fff;padding:18px 16px 22px;text-align:center}
+  .hd h1{margin:0;font-size:21px}.hd p{margin:4px 0 0;opacity:.85;font-size:13px}
+  .in{max-width:520px;margin:-12px auto 30px;padding:0 12px}
+  .card{background:#fff;border-radius:14px;padding:14px;box-shadow:0 2px 10px rgba(0,0,0,.06);margin-bottom:12px}
+  .tr{font-size:22px;font-weight:800;letter-spacing:.5px}.mu{color:var(--mu);font-size:13px}.now{margin-top:8px;padding:8px 10px;border-radius:10px;background:#eef6f1;font-size:14px}
+  h2{font-size:16px;margin:4px 0 10px}.en{display:block;font-size:12px;color:var(--mu);font-weight:400;direction:ltr}
+  .st{display:block;width:100%;text-align:start;border:2px solid var(--bd);background:#fff;border-radius:12px;padding:12px 14px;margin-bottom:8px;font-size:16px;font-weight:700;cursor:pointer}
+  .st.next{border-color:var(--ac)}.st.on{border-color:var(--ac);background:#e6f7ee}.st.done{opacity:.45}
+  textarea{width:100%;min-height:70px;border:1px solid var(--bd);border-radius:10px;padding:10px;font:inherit;font-size:15px}
+  .loc{display:flex;gap:8px;align-items:center;font-size:14px;margin:6px 0}.loc input{width:20px;height:20px}
+  .go{width:100%;background:var(--ac);color:#fff;border:0;border-radius:12px;padding:15px;font-size:18px;font-weight:800;cursor:pointer}.go:disabled{opacity:.6}
+  .err{color:var(--er);font-size:14px;margin-top:8px}.ok{text-align:center;padding:30px 14px}.ok b{font-size:22px;color:var(--acd)}
+</style>
+</head>
+<body>
+<div class="hd"><h1>تحديث حالة الشحنة</h1><p>Shipment status update · Baniyas Spike Trading</p></div>
+<div class="in" id="app"><div class="card">جارٍ التحميل… <span class="en">Loading…</span></div></div>
+<script src="js/config.js"></script>
+<script src="js/backend.js"></script>
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); }, app = $('app');
+  var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
+  // the route, in order; 'stage' matches the office dashboard
+  var STEPS = [
+    { k: 'egcArr', stage: 2, ar: 'وصلت جمارك سفاجا (مصر)', en: 'Arrived at Egypt customs (Safaga)' },
+    { k: 'ferry', stage: 3, ar: 'خرجت من الجمارك – على العبارة إلى ضبا', en: 'Cleared Egypt customs, on the ferry to Duba' },
+    { k: 'dubaArr', stage: 4, ar: 'وصلت ميناء ضبا (السعودية)', en: 'Arrived at Duba port (KSA)' },
+    { k: 'dubaClr', stage: 5, ar: 'خرجت من ضبا – في الطريق داخل السعودية', en: 'Cleared Duba, driving through Saudi Arabia' },
+    { k: 'batArr', stage: 6, ar: 'وصلت منفذ البطحاء', en: 'Arrived at Al Batha border' },
+    { k: 'ghuArr', stage: 7, ar: 'خرجت من البطحاء – في الغويفات (الإمارات)', en: 'Crossed Al Batha, at Ghuwaifat (UAE)' },
+    { k: 'ghuClr', stage: 8, ar: 'خرجت من الغويفات – في الطريق إلى المستودع', en: 'Cleared Ghuwaifat, on the way to the warehouse' },
+    { k: 'del', stage: 9, ar: 'وصلت المستودع', en: 'Arrived at the warehouse' },
+    { k: 'pos', stage: -1, ar: 'لا تغيير – أرسل موقعي فقط', en: 'No change, just sending my location' },
+    { k: 'problem', stage: -2, ar: 'يوجد تأخير أو مشكلة', en: 'Delay or problem (write below)' }];
+  var POS = ['Pre-Shipment', 'Awaiting Loading', 'En Route to Egypt Port', 'At Egypt Customs (Safaga)', 'Ferry Transit Egypt to KSA', 'At KSA Entry Border (Duba)', 'En Route Across KSA', 'At KSA Exit Border (Al Batha)', 'At Ghuwaifat Border', 'On the Road to Warehouse', 'Delivered to Warehouse', 'Closed - Purchase Booked'];
+  var POS_AR = ['قيد التجهيز', 'بانتظار التحميل', 'في الطريق إلى ميناء سفاجا', 'في جمارك سفاجا', 'على العبارة إلى ضبا', 'في ميناء ضبا', 'في الطريق داخل السعودية', 'في منفذ البطحاء', 'في الغويفات', 'في الطريق إلى المستودع', 'تم التسليم في المستودع', 'مغلقة'];
+  var tok = (new URLSearchParams(location.search).get('t') || '').replace(/[^A-Za-z0-9]/g, '');
+  var fail = function (ar, en) { app.innerHTML = '<div class="card">' + esc(ar) + '<span class="en">' + esc(en) + '</span></div>'; };
+  if (!tok || !window.BST || !BST.driver) return fail('الرابط غير صحيح.', 'This link is not valid.');
+  BST.driver.get(tok).then(function (L) {
+    if (!L || L.active === false) return fail('هذا الرابط غير صالح أو انتهى.', 'This link is not valid any more.');
+    var at = POS.indexOf(L.position), stage = at <= 1 ? 0 : at - 1, pick = null;
+    app.innerHTML = '<div class="card"><div class="mu">الشاحنة / الحاوية · Truck / container</div><div class="tr" dir="ltr">' + esc(L.ref) + (L.container && L.vehicle ? ' · ' + esc(L.vehicle) : '') + '</div>' +
+      '<div class="mu">' + esc(L.driver || '') + (L.items ? ' · ' + esc(L.items) : '') + '</div><div class="now">الحالة الحالية: <b>' + esc(POS_AR[at] || '-') + '</b><span class="en">Current status: ' + esc(L.position || '-') + '</span></div></div>' +
+      '<div class="card"><h2>أين أنت الآن؟<span class="en">Where are you now?</span></h2>' + STEPS.map(function (s) {
+        var cls = s.stage >= 0 && s.stage <= stage ? 'done' : s.stage === stage + 1 ? 'next' : ''; return '<button type="button" class="st ' + cls + '" data-k="' + s.k + '">' + esc(s.ar) + '<span class="en">' + esc(s.en) + '</span></button>'; }).join('') + '</div>' +
+      '<div class="card"><h2>ملاحظة (اختياري)<span class="en">Note (optional)</span></h2><textarea id="note" maxlength="500" placeholder="مثال: الطابور طويل في المنفذ"></textarea>' +
+      '<label class="loc"><input type="checkbox" id="gps" checked> أرسل موقعي (GPS) <span class="en">&nbsp;Send my location</span></label>' +
+      '<button type="button" class="go" id="go" disabled>إرسال · Send</button><div class="err" id="err"></div></div>';
+    app.querySelectorAll('.st').forEach(function (b) { b.onclick = function () { app.querySelectorAll('.st').forEach(function (x) { x.classList.remove('on'); }); b.classList.add('on'); pick = STEPS.filter(function (s) { return s.k === b.dataset.k; })[0]; $('go').disabled = false; }; });
+    $('go').onclick = function () {
+      var note = $('note').value.trim(); if (!pick) return; if (pick.k === 'problem' && !note) { $('err').textContent = 'اكتب المشكلة في الملاحظة · Please write the problem in the note.'; return; }
+      $('go').disabled = true; $('go').textContent = 'جارٍ الإرسال… · Sending…'; $('err').textContent = '';
+      var send = function (pos) { var o = { tok: tok, row: L.row, step: pick.k, label: pick.en, note: note, at: new Date().toISOString(), status: 'new', ua: navigator.userAgent.slice(0, 250) };
+        if (pos) { o.lat = Math.round(pos.coords.latitude * 1e5) / 1e5; o.lon = Math.round(pos.coords.longitude * 1e5) / 1e5; o.acc = Math.round(pos.coords.accuracy || 0); }
+        BST.driver.send(o).then(function () { app.innerHTML = '<div class="card ok"><b>✓ شكراً! تم إرسال التحديث</b><span class="en">Thank you, your update was sent.</span><p class="mu">يمكنك إغلاق هذه الصفحة · You can close this page.</p></div>'; },
+          function (e) { $('go').disabled = false; $('go').textContent = 'إرسال · Send'; $('err').textContent = 'تعذر الإرسال، حاول مرة أخرى · Could not send, please try again. (' + (e && e.message || e) + ')'; }); };
+      if ($('gps').checked && navigator.geolocation) navigator.geolocation.getCurrentPosition(send, function () { send(null); }, { enableHighAccuracy: true, timeout: 12000, maximumAge: 60000 }); else send(null); };
+  }, function () { fail('تعذر تحميل الصفحة، تحقق من الإنترنت.', 'Could not load. Check the internet connection.'); });
+})();
+</script>
+</body>
+</html>

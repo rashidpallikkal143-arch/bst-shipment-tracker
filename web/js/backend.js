@@ -32,7 +32,9 @@
     'ferry', 'dFerry',
     // real route: Egypt customs (Safaga) and the KSA exit border (Al Batha); manual ETA; free time per border (days, end date)
     'egc', 'dEgcArr', 'dEgc', 'bat', 'dBatArr', 'dBat', 'etaManual',
-    'ftEgc', 'feEgc', 'ftKsa', 'feKsa', 'ftBat', 'feBat', 'ftGhu', 'feGhu'];
+    'ftEgc', 'feEgc', 'ftKsa', 'feKsa', 'ftBat', 'feBat', 'ftGhu', 'feGhu',
+    // driver update link (token in the drvlinks collection)
+    'drvTok'];
   var EG_NUM = { sr: 1, ctn: 1, pallets: 1, invAmt: 1, frAmt: 1, temp: 1, ftEgc: 1, ftKsa: 1, ftBat: 1, ftGhu: 1 };
   var INSP_KEYS = ['id', 'ref', 'invoice', 'level', 'product', 'status', 'authority', 'date', 'result', 'clearance', 'clearDate', 'action', 'owner', 'due', 'remarks', 'updated', 'by'];
   var MX_KEYS = ['id', 'month', 'container', 'inv', 'invDate', 'desc', 'amount', 'paid', 'status', 'payDate', 'mode', 'ref', 'due', 'remarks', 'updated'];
@@ -324,6 +326,19 @@
   API.deleteProduct = function (barcode) { prodCan('del'); return S.db.del('products', prodId(barcode)).then(function () { return true; }); };
   API.importProducts = function (list) { prodCan('edit'); var ops = [], seen = {}; (list || []).forEach(function (o) { var d = prodData(o), id = prodId(d.barcode); if (seen[id]) return; seen[id] = 1; ops.push({ op: 'set', col: 'products', id: id, data: d }); });
     return S.db.batch(ops).then(function () { return ops.length; }); };
+  // ------------------------------------------------------------------ driver updates over WhatsApp
+  // a driver link is a random token; the driver page (driver.html, no login) reads drvlinks/{token} and writes driverUpdates
+  var newTok = function () { var c = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789', a = new Uint32Array(22), t = ''; (window.crypto || window.msCrypto).getRandomValues(a); for (var i = 0; i < a.length; i++) t += c[a[i] % c.length]; return t; };
+  var drvSummary = function (d, id) { var it = String(d.items || '').split('\n').filter(Boolean).map(function (l) { return l.replace(/\s*\[.*$/, '').replace(/:.*$/, '').trim(); });
+    return { row: id, month: s_(d.month), ref: s_(d.container) || s_(d.vehicle) || ('#' + s_(d.sr)), container: s_(d.container), vehicle: s_(d.vehicle), driver: s_(d.driver), supplier: s_(d.supplier), items: it.slice(0, 4).join(', '), position: egCompute(Object.assign({}, d)).position, active: true }; };
+  API.driverLink = function (row) { need('egEdit'); return S.db.get('eg', row).then(function (d) { if (!d) throw err('Shipment not found.');
+    var tok = d.drvTok || newTok(), sum = drvSummary(d, row); sum.updated = new Date().toISOString(); if (!d.drvTok) { sum.created = sum.updated; sum.by = ME.userId || ''; }
+    return S.db.merge('drvlinks', tok, sum).then(function () { return d.drvTok ? null : S.db.merge('eg', row, { drvTok: tok }); }).then(function () { return tok; }); }); };
+  API.markAsked = function (tok) { need('egEdit'); return S.db.merge('drvlinks', tok, { lastAsked: new Date().toISOString(), lastAskedBy: ME.userId || '' }).then(function () { return true; }); };
+  API.getDriverLinks = function () { need('egView'); return S.db.all('drvlinks').then(function (l) { return l.map(function (d) { return { tok: d._id, row: s_(d.row), lastAsked: s_(d.lastAsked), lastAskedBy: s_(d.lastAskedBy) }; }); }); };
+  API.getDriverUpdates = function () { need('egView'); return S.db.all('driverUpdates').then(function (l) { return l.map(function (d) { var o = {}; ['tok', 'row', 'step', 'label', 'note', 'at', 'status', 'doneBy', 'doneAt'].forEach(function (k) { o[k] = s_(d[k]); });
+    o.id = d._id; o.lat = d.lat == null ? null : Number(d.lat); o.lon = d.lon == null ? null : Number(d.lon); o.acc = d.acc == null ? null : Number(d.acc); return o; }).sort(function (a, b) { return b.at.localeCompare(a.at); }).slice(0, 300); }); };
+  API.setDriverUpdate = function (id, status) { need('egEdit'); if (['applied', 'dismissed'].indexOf(status) < 0) throw err('Unknown status'); return S.db.merge('driverUpdates', id, { status: status, doneBy: ME.userId || '', doneAt: new Date().toISOString() }).then(function () { return true; }); };
   API.deletePO = function (id) { return S.db.get('po', id).then(function (d) { if (!d) return true; poRight(d.sc, 'del'); return S.db.del('po', id).then(function () { return true; }); }); };
   // a shipment / container entry was made from this PO
   API.linkPO = function (id, link) { return S.db.get('po', id).then(function (d) { if (!d) throw err('This purchase order no longer exists.'); poRight(d.sc, 'edit');
@@ -492,6 +507,9 @@
   // ------------------------------------------------------------------ public object for the login / admin screens
   window.BST = {
     mode: MODE, rights: RIGHTS, ready: ready,
+    // used by the driver page (no login): read the link summary, send one update
+    driver: { get: function (tok) { return ready.then(function () { return S.db.get('drvlinks', String(tok || '').replace(/[^A-Za-z0-9]/g, '')); }); },
+      send: function (o) { return ready.then(function () { return S.db.set('driverUpdates', genId('D'), o); }); } },
     me: function () { return ME; }, can: can, settings: function () { return SET; },
     start: function () { return ready.then(function () { return S.auth.current(); }).then(function (u) { return u ? loadMe(u.uid).then(function (m) {
         // already signed in on this device: note the app was opened (at most once every 4 hours per device)

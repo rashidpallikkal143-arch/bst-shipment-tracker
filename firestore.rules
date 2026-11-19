@@ -91,6 +91,28 @@ service cloud.firestore {
     }
 
     // Purchase orders / schedules (sc = 'eg' or 'rx'); the backup user may read them
+    // driver update links (opened from WhatsApp, no login): anyone with the link can read that one link
+    match /drvlinks/{tok} {
+      allow get: if true;
+      allow list: if can('egView') || isUser('backup-bot');
+      allow create, update: if can('egEdit') || can('settings');
+      allow delete: if can('egDel') || can('settings');
+    }
+    // updates sent by drivers: create only through an active link, for that link's shipment, with a small fixed set of fields
+    match /driverUpdates/{id} {
+      allow create: if request.resource.data.keys().hasOnly(['tok', 'row', 'step', 'label', 'lat', 'lon', 'acc', 'note', 'at', 'status', 'ua'])
+        && request.resource.data.tok is string && request.resource.data.status == 'new'
+        && exists(/databases/$(database)/documents/drvlinks/$(request.resource.data.tok))
+        && get(/databases/$(database)/documents/drvlinks/$(request.resource.data.tok)).data.active == true
+        && request.resource.data.row == get(/databases/$(database)/documents/drvlinks/$(request.resource.data.tok)).data.row
+        && request.resource.data.step is string && request.resource.data.step.size() < 20
+        && (!('note' in request.resource.data) || (request.resource.data.note is string && request.resource.data.note.size() < 600))
+        && (!('ua' in request.resource.data) || (request.resource.data.ua is string && request.resource.data.ua.size() < 300));
+      allow read: if can('egView') || isUser('backup-bot');
+      allow update: if can('egEdit') || can('settings');
+      allow delete: if can('egDel') || can('settings');
+    }
+
     // product master: barcode -> product details
     match /products/{id} {
       allow read: if can('egView') || can('gView') || can('settings') || isUser('backup-bot');

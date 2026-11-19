@@ -120,8 +120,8 @@
     var nfix = checks(r).length;
     return '<div class="egc' + (late ? ' late' : '') + '"><div class="egc-m" data-ei="' + r._i + '" title="Open details"><div class="egc-t"><b>' + esc(ref(r)) + '</b>' + (r.container && r.vehicle ? '<span class="mu">' + esc(r.vehicle) + '</span>' : '') + '</div>' +
       '<div class="egc-s">' + esc(supName(r.supplier) || 'Supplier not entered') + (truckNo(r) ? ' <span class="egb g" title="Trucks on this invoice">Truck ' + truckNo(r) + (r.inv ? ' · ' + esc(r.inv) : '') + '</span>' : '') + '</div><div class="mu">' + esc((its[0] && its[0].n) || '') + (its.length > 1 ? ' +' + (its.length - 1) : '') + (ctnOf(r) ? ' · ' + nf(ctnOf(r)) + ' CTN' : '') + '</div>' +
-      '<div class="egc-f"><span class="mu">' + esc(when) + '</span>' + al + (nfix ? '<span class="egb w" title="Needs fixing">⚠ ' + nfix + '</span>' : '') + '</div></div>' +
-      (can('egEdit') ? '<div class="egc-a">' + (s < K.CLOSED ? '<button type="button" class="p" data-egx="next" data-i="' + r._i + '">' + esc(STEP[s].b) + ' ▸</button>' : '') + '<button type="button" data-egx="edit" data-i="' + r._i + '" title="Edit">✎</button></div>' : '') + '</div>'; }
+      '<div class="egc-f"><span class="mu">' + esc(when) + '</span>' + al + (nfix ? '<span class="egb w" title="Needs fixing">⚠ ' + nfix + '</span>' : '') + (drvNew(r).length ? '<span class="egb g" style="align-self:flex-start;flex:0 0 auto" title="New driver update">📲 ' + drvNew(r).length + '</span>' : '') + '</div></div>' +
+      (can('egEdit') ? '<div class="egc-a">' + (s < K.CLOSED ? '<button type="button" class="p" data-egx="next" data-i="' + r._i + '">' + esc(STEP[s].b) + ' ▸</button>' : '') + (s >= K.TOPORT && s <= K.TOWH ? waBtn(r, 'ic') : '') + '<button type="button" data-egx="edit" data-i="' + r._i + '" title="Edit">✎</button></div>' : '') + '</div>'; }
   var FOLD = (function () { try { return JSON.parse(localStorage.getItem('bst.egfold') || '{}') || {}; } catch (e) { return {}; } })();
   function cl(k) { return FOLD[k] ? ' egcl' : ''; }
   function ar(k) { return '<span class="egar" aria-hidden="true">' + (FOLD[k] ? '▸' : '▾') + '</span>'; }
@@ -140,6 +140,7 @@
     var kpi = function (t, v, sub, cls, act) { return '<div class="egk ' + (cls || '') + '"' + (act ? ' data-egk="' + act + '"' : '') + '><span>' + t + '</span><b>' + v + '</b><em>' + (sub || '') + '</em></div>'; };
     var h = '<div class="egh"><div><h2>Egypt operations</h2><span class="mu">Supplier → Safaga (Egypt customs) → ferry → Duba (KSA) → Al Batha (KSA) → Ghuwaifat (UAE) → warehouse · report date ' + esc(dlong(today())) + ' · showing ' + esc(scopeLabel()) + '</span></div><div class="egh-b">' +
       (can('egEdit') ? '<button type="button" class="p" data-egx="new">+ New container</button>' : '') + '<button type="button" data-egx="report">🖨 Egypt report</button><button type="button" data-egk="fix"' + (fixes.length ? ' class="warnb"' : '') + '>⚠ Needs fixing (' + fixes.length + ')</button></div></div>';
+    h += bannerHtml();
     h += '<div class="egks">' + kpi('Open shipments', open.length, 'not yet delivered', '', 'L:open') + kpi('On the road / ferry', road.length, 'to Safaga ' + cnt(K.TOPORT) + ' · ferry ' + cnt(K.FERRY) + ' · across KSA ' + cnt(K.ACROSS) + ' · to warehouse ' + cnt(K.TOWH), 'b', 'L:road') +
       kpi('At the borders', border.length, (ftOver ? ftOver + ' over free time · ' : '') + 'Egypt ' + cnt(K.EGC) + ' · Duba ' + cnt(K.DUBA) + ' · Al Batha ' + cnt(K.BATHA) + ' · Ghuwaifat ' + cnt(K.GHU), ftOver ? 'r' : 'o', 'L:border') +
       kpi('Overdue', over.length, over.length ? 'past ETA, not delivered' : 'all on time', over.length ? 'r' : 'g', 'L:over') +
@@ -151,6 +152,9 @@
       ST.slice(0, K.CLOSED).map(function (s, i) { var l = all.filter(function (r) { return stg(r) === i; }).sort(function (a, b) { return Number(isOver(b)) - Number(isOver(a)) || (stuck(b) || 0) - (stuck(a) || 0); });
         return '<div class="egcol"><div class="egcol-h" data-egk="L:s' + i + '" title="Show the list" style="border-color:' + s.c + '"><b>' + esc(s.t) + '</b><span>' + l.length + ' ›</span></div>' + (l.length ? l.map(cardHtml).join('') : '<div class="egempty">Nothing here</div>') + '</div>'; }).join('') +
       '</div><div class="mu" style="margin-top:6px"><a class="eglnk" data-egk="L:s' + K.CLOSED + '">Closed (purchase booked): ' + all.filter(function (r) { return stg(r) === K.CLOSED; }).length + ' shipments ›</a></div></div>';
+    var dN = DRV.ups.filter(function (u) { return u.status === 'new'; }).length, rL = roundList(), rN = rL.filter(function (r) { return !askedToday(r); }).length;
+    h += '<div class="grid2"><div class="pn' + cl('drv') + '" id="eg-drv" data-egp="drv"><h3 class="egt" data-egtg="drv">' + ar('drv') + 'Driver updates ' + (dN ? '<span class="egb g">' + dN + ' new</span>' : '') + ' <span class="mu">from the WhatsApp link · <a class="eglnk" data-egx="drefresh">refresh</a></span></h3>' + drvHtml(all) + '</div>' +
+      '<div class="pn' + cl('round') + '" id="eg-round" data-egp="round"><h3 class="egt" data-egtg="round">' + ar('round') + 'Morning round · 9:00 UAE <span class="mu">' + (rL.length ? (rL.length - rN) + ' / ' + rL.length + ' asked today' : '') + '</span></h3>' + roundHtml() + '</div></div>';
     // payments + transit
     var payRow = function (r, kind) { var amt = kind === 'sup' ? r.invAmt : r.frAmt, st2 = kind === 'sup' ? r.supPay : r.frPay;
       return '<tr><td><a data-ei="' + r._i + '"><b>' + esc(ref(r)) + '</b></a><div class="mu">' + esc(r.month) + ' · INV ' + esc(r.inv || '-') + (kind === 'sup' && groupOf(r).length > 1 ? ' · ' + groupOf(r).length + ' trucks' : '') + '</div></td><td>' + esc(kind === 'sup' ? supName(r.supplier) || '-' : r.vehicle || '-') + '</td><td>' + esc(st2 || 'Unpaid') + '</td><td class="n">' + (num(amt) ? '$ ' + nf(amt) : '<span class="late">missing</span>') + '</td><td>' +
@@ -258,7 +262,7 @@
     var opts = STEP.slice(s).map(function (x, k) { return '<option value="' + (s + k) + '"' + (k === 0 ? ' selected' : '') + '>' + esc(x.t) + '</option>'; }).join('');
     var body = '<div class="egm-now">Now: <b>' + esc(ST[s].t) + '</b></div><label>Move to<select id="egn-to">' + opts + '</select></label><label>Date<input type="date" id="egn-d" value="' + today() + '"></label>' +
       '<div id="egn-tr" class="egm-g"><label>Truck plate no.<input id="egn-veh" value="' + esc(r.vehicle || '') + '" placeholder="e.g. 1481"></label><label>Container no.<input id="egn-cont" value="' + esc(r.container || '') + '" placeholder="e.g. 8253"></label>' +
-      '<label>Driver<input id="egn-drv" value="' + esc(r.driver || '') + '"></label><label>Driver mobile<input id="egn-mob" value="' + esc(r.mobile || '') + '"></label></div><label id="egn-invw">Invoice no. <span class="mu">(optional until purchase booking)</span><input id="egn-inv" value="' + esc(r.inv || '') + '"></label><div id="egn-rf" class="egm-rf"><b>Reefer check at booking</b><div class="egm-g"><label>Temperature (°C)<input type="text" inputmode="text" autocomplete="off" data-num="1" id="egn-temp" value="' + esc(r.temp) + '" placeholder="e.g. -18"></label><label>Reefer condition<select id="egn-reef">' + reeferOpts(r.reefer) + '</select></label></div><label>Temperature note<input id="egn-tn" value="' + esc(r.tempNote || '') + '" placeholder="e.g. reefer switched off on arrival, -9 °C at the door"></label></div><div class="mu">Skipped steps are marked done without a date; you can add dates later in Edit.</div>';
+      '<label>Driver<input id="egn-drv" value="' + esc(r.driver || '') + '"></label><label>Driver mobile <span class="mu">(with country code)</span><input id="egn-mob" placeholder="+20 10 1234 5678" value="' + esc(r.mobile || '') + '"></label></div><label id="egn-invw">Invoice no. <span class="mu">(optional until purchase booking)</span><input id="egn-inv" value="' + esc(r.inv || '') + '"></label><div id="egn-rf" class="egm-rf"><b>Reefer check at booking</b><div class="egm-g"><label>Temperature (°C)<input type="text" inputmode="text" autocomplete="off" data-num="1" id="egn-temp" value="' + esc(r.temp) + '" placeholder="e.g. -18"></label><label>Reefer condition<select id="egn-reef">' + reeferOpts(r.reefer) + '</select></label></div><label>Temperature note<input id="egn-tn" value="' + esc(r.tempNote || '') + '" placeholder="e.g. reefer switched off on arrival, -9 °C at the door"></label></div><div class="mu">Skipped steps are marked done without a date; you can add dates later in Edit.</div>';
     var m = modal('Update ' + esc(ref(r)), body, 'Save step', function (m2) {
       var to = Number(m2.querySelector('#egn-to').value), d = m2.querySelector('#egn-d').value, v = {};
       if (!d) throw new Error('Enter the date.');
@@ -309,7 +313,7 @@
       '<datalist id="egf-sup">' + Object.keys(sups).sort().map(function (s) { return '<option value="' + esc(s) + '">'; }).join('') + '</datalist></div>' +
       '<div class="egf-sec" id="egs-items"><h3><span id="egx-p1">Products</span> <button id="eai" type="button">+ Add product</button></h3><div id="eits"></div><div class="g" style="margin-top:10px">' + inp('ctn', 'Total CTN (auto)', 'number') + inp('pallets', 'Total pallets (auto)', 'number') + '</div></div>' +
       '<div class="egf-sec" id="egs-truck"><h3><span id="egx-t1">Truck & container</span></h3><input type="hidden" data-e="grp" value="' + esc(val('grp')) + '"><div class="g">' + inp('vehicle', 'Truck plate no.', '', ' placeholder="e.g. 1481"') + '<label>Container no.<input data-e="container" value="' + esc(val('container')) + '" placeholder="e.g. 8253"></label>' +
-      inp('driver', 'Driver name') + inp('mobile', 'Driver mobile') + inp('frAmt', 'Freight amount ($)', 'number') + '</div>' +
+      inp('driver', 'Driver name') + inp('mobile', 'Driver mobile (+20…, for WhatsApp)') + inp('frAmt', 'Freight amount ($)', 'number') + '</div>' +
       '<div id="egx-sibs"></div><div id="egx-list"></div><button type="button" class="egx-add" id="egx-add">+ Add another truck / container on this invoice</button></div>' +
       '<div class="egf-sec" id="egs-trip"><h3>Journey & dates <span class="mu">pick a status or type a date; the other fills itself</span></h3><div class="egj">' +
       '<div class="egj-eta"><label class="egj-d">ETD (planned dispatch)<input type="date" data-alias="sched" value="' + esc(val('sched')) + '"></label><label class="egj-d">ETA (UAE warehouse)<input type="date" data-e="etaManual" value="' + esc(val('etaManual')) + '"><small class="mu" id="egf-eta"></small></label></div>' +
@@ -339,7 +343,7 @@
     if (sibs.length) $('egx-sibs').innerHTML = '<div class="egx-sib"><b>Also on this invoice:</b> ' + groupOf(sibs[0]).filter(function (x) { return !r || x.row !== r.row; }).map(function (x) { return '<button type="button" data-egxo="' + x._i + '">#' + esc(x.sr) + ' · ' + esc(x.container || x.vehicle || 'truck') + (x.driver ? ' · ' + esc(x.driver) : '') + '</button>'; }).join(' ') + '<div class="mu">Supplier, invoice, PO, brand, origin and supplier payment are kept the same on every truck of this invoice.</div></div>';
     $('egx-sibs').onclick = function (e) { var b = e.target.closest('[data-egxo]'); if (!b) return; if (window.DIRTY && DIRTY.ov3 && !confirm('Leave this shipment without saving?')) return; if (window.DIRTY) DIRTY.ov3 = false; openForm(E.rows[Number(b.dataset.egxo)]); };
     function addTruck(t) { t = t || {}; var c = document.createElement('div'); c.className = 'egx';
-      c.innerHTML = '<div class="egx-h"><b class="egx-n"></b><button type="button" class="egx-rm">Remove</button></div><div class="g"><label>Truck plate no.<input class="t-veh" placeholder="e.g. 1482"></label><label>Container no.<input class="t-cont" placeholder="e.g. 8254"></label><label>Driver name<input class="t-drv"></label><label>Driver mobile<input class="t-mob"></label><label>Freight amount ($)<input class="t-fr" type="text" inputmode="decimal" autocomplete="off" data-num="1"></label></div>' +
+      c.innerHTML = '<div class="egx-h"><b class="egx-n"></b><button type="button" class="egx-rm">Remove</button></div><div class="g"><label>Truck plate no.<input class="t-veh" placeholder="e.g. 1482"></label><label>Container no.<input class="t-cont" placeholder="e.g. 8254"></label><label>Driver name<input class="t-drv"></label><label>Driver mobile <span class="mu">(+20…, for WhatsApp)</span><input class="t-mob" placeholder="+20 10 1234 5678"></label><label>Freight amount ($)<input class="t-fr" type="text" inputmode="decimal" autocomplete="off" data-num="1"></label></div>' +
         '<div class="egx-it"><b>Products on this truck</b><div class="egx-its"></div><button type="button" class="egx-ai">+ Add product</button> <span class="mu egx-tot"></span></div>';
       c.querySelector('.t-veh').value = t.vehicle || ''; c.querySelector('.t-cont').value = t.container || ''; c.querySelector('.t-drv').value = t.driver || ''; c.querySelector('.t-mob').value = t.mobile || ''; c.querySelector('.t-fr').value = t.frAmt || '';
       var addIt = function (it) { egAddItem(it); var row = $('eits').lastElementChild; c.querySelector('.egx-its').appendChild(row); row.querySelector('.x').onclick = function () { row.remove(); tot(); }; };
@@ -450,6 +454,9 @@
   // ------------------------------------------------------------------ wiring
   var css = document.createElement('style');
   css.textContent = [
+    '.egwa{background:#25d366;color:#fff;border:0;border-radius:8px;padding:6px 10px;font-weight:700;font-size:12px;cursor:pointer;text-decoration:none;display:inline-block}.egwa.off{background:#cfd8d3;color:#4b5563}.egc-a .egwa.ic,.egwa.ic{padding:4px 9px;font-size:14px;flex:0 0 auto!important;width:auto!important}.egwa.big{font-size:16px;padding:12px 18px}' +
+    '.egban{display:block!important;text-align:left;cursor:pointer;margin:0 0 10px;padding:10px 14px;border-radius:12px;background:#fff7e6;border:1px solid #f3c66b;font-size:14px}.egban.g{background:#e6f7ee;border-color:#8fd3ae}.okc{color:var(--acd)}' +
+    '.egdu{display:flex;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px solid var(--bd);font-size:13px}.egdu.bad{box-shadow:inset 3px 0 0 var(--er);padding-left:8px}.egdu-n{margin-top:3px;font-style:italic}.egdu-a{display:flex;gap:6px;align-items:flex-start;flex-shrink:0}.egdu-old{margin-top:8px}.egdu-old .egdu{opacity:.75}' +
     '#egdash{margin-bottom:12px}.egh{display:flex;justify-content:space-between;align-items:flex-end;gap:10px;flex-wrap:wrap;margin:4px 0 12px}.egh h2{margin:0;font-size:20px}.egh-b{display:flex;gap:8px;flex-wrap:wrap}.warnb{border-color:#f0c43c;background:#fff8e1}',
     '.egks{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:12px}.egk{background:#fff;border:1px solid var(--bd);border-left:4px solid #8a94a6;border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;gap:2px;cursor:pointer;min-width:0}.egk span{font-size:12px;color:var(--mu);font-weight:600}.egk b{font-size:24px;line-height:1.1}.egk em{font-style:normal;font-size:12px;color:var(--mu);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
     '.egk.b{border-left-color:var(--bl)}.egk.o{border-left-color:var(--wa)}.egk.r{border-left-color:var(--er)}.egk.r b{color:var(--er)}.egk.g{border-left-color:var(--ac)}.egk:hover{box-shadow:0 2px 10px rgba(0,0,0,.06)}',
@@ -489,6 +496,73 @@
   ].join('\n');
   document.head.appendChild(css);
 
+  // ------------------------------------------------------------------ driver updates over WhatsApp (semi-automatic morning round)
+  // staff tap WhatsApp: a ready message with the truck's own update link opens; the driver taps where he is (and can share his location);
+  // the update lands in the "Driver updates" inbox and staff apply it to the shipment with one tap.
+  var DRV = { links: {}, ups: [], at: 0, busy: false };
+  var DSTEP = { egcArr: K.EGC, ferry: K.FERRY, dubaArr: K.DUBA, dubaClr: K.ACROSS, batArr: K.BATHA, ghuArr: K.GHU, ghuClr: K.TOWH, del: K.DEL };
+  function dubai(d) { var p = {}; try { new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Dubai', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(d ? new Date(d) : new Date()).forEach(function (x) { p[x.type] = x.value; }); } catch (e) { return { day: today(), h: new Date().getHours(), t: '' }; }
+    return { day: p.year + '-' + p.month + '-' + p.day, h: Number(p.hour), t: p.hour + ':' + p.minute }; }
+  function whenTxt(iso) { if (!iso) return '-'; var x = dubai(iso), n = dubai(); return (x.day === n.day ? 'today' : dshow(x.day)) + ' ' + x.t; }
+  // WhatsApp needs the full international number: +971…, 00966…, or an Egyptian 01xxxxxxxxx (made +20)
+  function waNum(m) { var s = String(m || '').replace(/[٠-٩]/g, function (d) { return d.charCodeAt(0) - 0x0660; }).replace(/[^\d+]/g, '');
+    if (/^\+/.test(s)) s = s.slice(1).replace(/\+/g, ''); else if (/^00/.test(s)) s = s.slice(2); else if (/^01\d{9}$/.test(s)) s = '20' + s.slice(1); else if (!/^\d{11,15}$/.test(s)) return '';
+    return /^\d{10,15}$/.test(s) ? s : ''; }
+  function drvNew(r) { return DRV.ups.filter(function (u) { return u.status === 'new' && u.row === r.row; }); }
+  function drvLast(r) { return DRV.ups.filter(function (u) { return u.row === r.row; })[0] || null; }
+  function askedToday(r) { var l = DRV.links[r.row]; return !!(l && l.lastAsked && dubai(l.lastAsked).day === dubai().day); }
+  function roundList() { return (window.E && E.rows || []).filter(function (r) { var s = stg(r); return s >= K.TOPORT && s <= K.TOWH; }); }
+  function waBtn(r, cls) { if (!can('egEdit')) return ''; var ok = !!waNum(r.mobile);
+    return '<button type="button" class="egwa' + (cls ? ' ' + cls : '') + (ok ? '' : ' off') + '" data-egx="wa" data-i="' + r._i + '" title="' + (ok ? 'WhatsApp the driver for an update' : r.mobile ? 'Add the country code to the driver mobile (e.g. +20…)' : 'No driver mobile yet') + '">' + (cls === 'ic' ? (askedToday(r) ? '✓' : '💬') : (askedToday(r) ? '✓ ' : '') + 'WhatsApp') + '</button>'; }
+  function loadDrv(force) { if (!can('egView') || !B || !B.call || DRV.busy) return Promise.resolve(); if (!force && Date.now() - DRV.at < 60000) return Promise.resolve(); DRV.busy = true;
+    return Promise.all([B.call('getDriverLinks'), B.call('getDriverUpdates')]).then(function (x) { var m = {}; (x[0] || []).forEach(function (l) { m[l.row] = l; }); DRV.links = m; DRV.ups = x[1] || []; DRV.at = Date.now(); DRV.busy = false; if ($('egdash')) render(); notifyCheck(); },
+      function (e) { DRV.busy = false; console.warn('driver updates', e); }); }
+  function waAsk(r) {
+    var n = waNum(r.mobile);
+    if (!n) return modal('WhatsApp · ' + esc(ref(r)), '<div class="mu">' + (r.mobile ? 'The driver mobile <b>' + esc(r.mobile) + '</b> has no country code.' : 'This truck has no driver mobile yet.') + ' Enter it with the country code, e.g. <b>+20 10 1234 5678</b> (Egypt), +966… (KSA) or +971… (UAE).</div><label>Driver mobile<input id="egw-m" value="' + esc(r.mobile || '') + '" placeholder="+20 10 1234 5678"></label>', 'Save and open WhatsApp',
+      function (m) { var v = m.querySelector('#egw-m').value.trim(); if (!waNum(v)) throw new Error('Enter the full number with the country code, starting with + or 00.'); r.mobile = v; return save(r, { mobile: v }).then(function () { setTimeout(function () { waAsk(r); }, 50); }); });
+    var w = null; try { w = window.open('', '_blank'); } catch (e) {}
+    return B.call('driverLink', r.row).then(function (tok) {
+      var link = location.origin + location.pathname.replace(/[^\/]*$/, '') + 'driver.html?t=' + encodeURIComponent(tok), d = r.driver ? ' ' + r.driver : '';
+      var msg = 'السلام عليكم' + d + ' 👋\nمن فضلك أرسل تحديث الشحنة ' + ref(r) + ' (BST) من الرابط ده، اضغط على مكانك الحالي:\n' + 'Hello' + d + ', please send the update for truck ' + ref(r) + ' (BST). Tap where you are now:\n' + link;
+      var url = 'https://wa.me/' + n + '?text=' + encodeURIComponent(msg);
+      if (w && !w.closed) w.location.href = url; else modal('WhatsApp · ' + esc(ref(r)), '<div class="mu">Your browser blocked the new window. Tap the button to open WhatsApp.</div><p><a class="egwa big" target="_blank" rel="noopener" href="' + esc(url) + '">Open WhatsApp</a></p><label>Driver update link<input readonly value="' + esc(link) + '" onclick="this.select()"></label>', 'Done', function () {});
+      var l = DRV.links[r.row] = DRV.links[r.row] || { tok: tok, row: r.row }; l.tok = tok; l.lastAsked = new Date().toISOString();
+      return B.call('markAsked', tok).then(function () { if ($('egdash')) render(); }); }, function (e) { if (w) try { w.close(); } catch (x) {} alert('Could not make the driver link: ' + (e && e.message || e)); }); }
+  function applyUp(u) {
+    var r = (E.rows || []).filter(function (x) { return x.row === u.row; })[0]; if (!r) return B.call('setDriverUpdate', u.id, 'dismissed').then(function () { loadDrv(true); });
+    var to = DSTEP[u.step], s = stg(r), day = dubai(u.at).day;
+    if (to == null || to <= s) return B.call('setDriverUpdate', u.id, 'applied').then(function () { loadDrv(true); });
+    modal('Apply driver update · ' + esc(ref(r)), '<div class="egm-now">Now: <b>' + esc(ST[s].t) + '</b></div><div class="egm-now">Driver says: <b>' + esc(ST[to].t) + '</b>' + (u.note ? '<br><span class="mu">“' + esc(u.note) + '”</span>' : '') + '</div><label>Date<input type="date" id="egu-d" value="' + esc(day) + '"></label><div class="mu">Steps in between are marked done without a date.</div>', 'Move shipment',
+      function (m) { var d = m.querySelector('#egu-d').value, v = {}; if (!d) throw new Error('Enter the date.'); if (r.actual && d < r.actual) throw new Error('The date is before the dispatch date (' + dlong(r.actual) + ').');
+        for (var k = s; k < to; k++) { var x = STEP[k]; Object.keys(x.set).forEach(function (f) { v[f] = x.set[f]; }); if (k === to - 1) x.date.forEach(function (f) { v[f] = d; }); }
+        return save(r, v).then(function () { return B.call('setDriverUpdate', u.id, 'applied'); }).then(function () { loadDrv(true); }); }); }
+  function drvHtml(all) {
+    var nw = DRV.ups.filter(function (u) { return u.status === 'new'; }), done = DRV.ups.filter(function (u) { return u.status !== 'new'; }).slice(0, 8), byRow = {};
+    all.forEach(function (r) { byRow[r.row] = r; });
+    var line = function (u, act) { var r = byRow[u.row], to = DSTEP[u.step], fw = r && to != null && to > stg(r);
+      return '<div class="egdu' + (u.step === 'problem' ? ' bad' : '') + '"><div><b>' + (r ? '<a data-ei="' + r._i + '">' + esc(ref(r)) + '</a>' : 'Removed shipment') + '</b> <span class="mu">' + esc(whenTxt(u.at)) + (r && r.driver ? ' · ' + esc(r.driver) : '') + '</span><br>' + (u.step === 'problem' ? '⚠ ' : '') + esc(u.label || u.step) +
+        (u.note ? '<div class="egdu-n">“' + esc(u.note) + '”</div>' : '') + (u.lat ? ' <a class="eglnk" target="_blank" rel="noopener" href="https://www.google.com/maps?q=' + encodeURIComponent(u.lat + ',' + u.lon) + '">📍 Map' + (u.acc ? ' (±' + u.acc + ' m)' : '') + '</a>' : '') +
+        (r && !act ? '' : r ? '<div class="mu">Shipment now: ' + esc(ST[stg(r)].t) + '</div>' : '') + '</div>' +
+        (act && can('egEdit') ? '<div class="egdu-a">' + (fw ? '<button type="button" class="sm p" data-egx="dup" data-u="' + esc(u.id) + '">Apply ▸</button>' : '<button type="button" class="sm" data-egx="dok" data-u="' + esc(u.id) + '">Seen ✓</button>') + '<button type="button" class="sm" data-egx="dno" data-u="' + esc(u.id) + '">Dismiss</button></div>' : '<span class="mu">' + esc(u.status) + '</span>') + '</div>'; };
+    return (nw.length ? nw.map(function (u) { return line(u, true); }).join('') : '<div class="mu">No new driver updates. Send the morning round below; replies appear here.</div>') +
+      (done.length ? '<details class="egdu-old"><summary class="mu">Recently handled (' + done.length + ')</summary>' + done.map(function (u) { return line(u, false); }).join('') + '</details>' : ''); }
+  function roundHtml() {
+    var l = roundList(), n = l.filter(function (r) { return !askedToday(r); }).length;
+    if (!l.length) return '<div class="mu">No truck is on the way right now.</div>';
+    return '<div class="mu" style="margin-bottom:6px">Every morning from 9:00 (UAE time) send each driver his update link: tap WhatsApp, then Send. ' + (n ? '<b>' + n + ' of ' + l.length + ' not asked today.</b>' : '<b class="okc">✓ All ' + l.length + ' asked today.</b>') +
+      ('Notification' in window && can('egEdit') ? ' · <a class="eglnk" data-egx="dnotif">' + (Notification.permission === 'granted' ? '🔔 9:00 reminder on' : '🔔 Remind me at 9:00') + '</a>' : '') + '</div><div class="tw"><table class="egtb"><thead><tr><th>Truck</th><th>Driver</th><th>Now</th><th>Asked</th><th>Last driver update</th><th></th></tr></thead><tbody>' +
+      l.sort(function (a, b) { return Number(askedToday(a)) - Number(askedToday(b)) || stg(a) - stg(b); }).map(function (r) { var la = DRV.links[r.row], lu = drvLast(r);
+        return '<tr><td><a data-ei="' + r._i + '"><b>' + esc(ref(r)) + '</b></a><div class="mu">' + esc(r.month) + ' · #' + esc(r.sr) + '</div></td><td>' + esc(r.driver || '-') + '<div class="mu">' + esc(r.mobile || 'no mobile') + '</div></td><td>' + esc(ST[stg(r)].s) + '</td><td>' + (askedToday(r) ? '<span class="okc">✓ ' + esc(dubai(la.lastAsked).t) + '</span>' : la && la.lastAsked ? '<span class="mu">' + esc(whenTxt(la.lastAsked)) + '</span>' : '<span class="mu">never</span>') + '</td><td>' + (lu ? esc(lu.label || lu.step) + '<div class="mu">' + esc(whenTxt(lu.at)) + '</div>' : '<span class="mu">-</span>') + '</td><td>' + waBtn(r) + '</td></tr>'; }).join('') + '</tbody></table></div>'; }
+  function bannerHtml() { if (!can('egEdit')) return ''; var nw = DRV.ups.filter(function (u) { return u.status === 'new'; }).length, l = roundList(), left = l.filter(function (r) { return !askedToday(r); }).length, h = dubai().h, out = '';
+    if (nw) out += '<div class="egban g" data-egk="drv">📲 <b>' + nw + ' new driver update' + (nw > 1 ? 's' : '') + '</b> waiting to be applied ›</div>';
+    if (h >= 9 && left) out += '<div class="egban" data-egk="round">☀ <b>Morning round:</b> ' + left + ' truck' + (left > 1 ? 's' : '') + ' not asked for an update today (UAE time ' + esc(dubai().t) + ') ›</div>';
+    return out; }
+  function notifyCheck() { try { if (!('Notification' in window) || Notification.permission !== 'granted' || !can('egEdit')) return; var d = dubai(); if (d.h < 9 || localStorage.getItem('bst.egnotif') === d.day) return;
+    var left = roundList().filter(function (r) { return !askedToday(r); }).length; if (!left) return; localStorage.setItem('bst.egnotif', d.day);
+    new Notification('BST · Egypt morning round', { body: left + ' truck(s) on the way: send the drivers their update link on WhatsApp.', tag: 'bst-round' }); } catch (e) {} }
+  setInterval(function () { if ($('egdash') && document.visibilityState !== 'hidden') loadDrv(); notifyCheck(); }, 120000);
+
   function setup() {
     var sec = $('eg'); if (!sec || $('egdash')) return;
     var d = document.createElement('div'); d.id = 'egdash'; var hl = $('hl-eg'); (hl || sec.firstChild).insertAdjacentElement('afterend', d);
@@ -499,17 +573,21 @@
       var tg = e.target.closest('[data-egtg]'); if (tg && !e.target.closest('a,button')) return fold(tg.dataset.egtg);
       var b = e.target.closest('[data-egx],[data-egk],[data-egm]'); if (!b) return; var r = b.dataset.i != null ? E.rows[Number(b.dataset.i)] : null;
       if (b.dataset.egm) { month = b.dataset.egm; var em = $('em'); if (em) em.value = month; if (typeof renderAll === 'function') renderAll(); return; }
-      if (b.dataset.egk) { var k = b.dataset.egk; if (k === 'board' || k === 'pay' || k === 'fix') { if (FOLD[k]) fold(k); if (k === 'pay') { if (FOLD.paysup) fold('paysup'); if (FOLD.payfr) fold('payfr'); } return $('eg-' + k).scrollIntoView({ behavior: 'smooth' }); }
+      if (b.dataset.egk) { var k = b.dataset.egk; if (k === 'board' || k === 'pay' || k === 'fix' || k === 'drv' || k === 'round') { if (FOLD[k]) fold(k); if (k === 'pay') { if (FOLD.paysup) fold('paysup'); if (FOLD.payfr) fold('payfr'); } return $('eg-' + k).scrollIntoView({ behavior: 'smooth' }); }
         if (/^L:/.test(k)) return listOpen(k.slice(2));
         if (/^f:/.test(k)) { eF = k.slice(2); if (typeof renderEgReport === 'function') renderEgReport(); var t = $('etb'); if (t) t.closest('.pn').scrollIntoView({ behavior: 'smooth' }); } return; }
+      var x = b.dataset.egx; var fu = function () { return DRV.ups.filter(function (u) { return u.id === b.dataset.u; })[0]; };
+      if (x === 'dup') { var u0 = fu(); return u0 && applyUp(u0); } if (x === 'dok' || x === 'dno') { b.disabled = true; return B.call('setDriverUpdate', b.dataset.u, x === 'dok' ? 'applied' : 'dismissed').then(function () { loadDrv(true); }); }
+      if (x === 'drefresh') return loadDrv(true); if (x === 'dnotif') { if (Notification.permission === 'granted') return alert('The 9:00 reminder is on in this browser. It shows while the app is open (a tab can stay in the background).'); return Notification.requestPermission().then(function () { render(); notifyCheck(); }); }
       var x = b.dataset.egx; if (x === 'new') return openForm(); if (x === 'report') return report(); if (x === 'freedef') return freeDefaults(); if (!r) return;
-      if (x === 'next') return nextStep(r); if (x === 'edit') return openForm(r); if (x === 'paid') return markPaid(r, b.dataset.k); if (x === 'fix') return openForm(r, null, b.dataset.sec); }); }
+      if (x === 'wa') return waAsk(r); if (x === 'next') return nextStep(r); if (x === 'edit') return openForm(r); if (x === 'paid') return markPaid(r, b.dataset.k); if (x === 'fix') return openForm(r, null, b.dataset.sec); }); }
   // take over the Egypt entry form, the overview and the details view
   window.openEg = function (r, pre) { return openForm(r, pre); };
-  if (typeof window.renderEg === 'function') { var oRender = window.renderEg; window.renderEg = function () { var x = oRender.apply(this, arguments); try { setup(); render(); } catch (e) { console.error(e); } return x; }; }
+  if (typeof window.renderEg === 'function') { var oRender = window.renderEg; window.renderEg = function () { var x = oRender.apply(this, arguments); try { setup(); render(); loadDrv(); } catch (e) { console.error(e); } return x; }; }
   if (typeof window.egDetail === 'function') { var oDet = window.egDetail; window.egDetail = function (r) { var x = oDet.apply(this, arguments);
     try { var hb = [].filter.call(document.querySelectorAll('#dt b'), function (b) { return b.textContent === 'Milestones'; })[0]; if (hb && r) { hb.textContent = 'Journey'; hb.parentNode.querySelector('.ms').outerHTML = timeline(r); }
       var g = groupOf(r); if (g.length > 1) { var tl = document.querySelector('#dt .egtl'); if (tl) tl.insertAdjacentHTML('beforebegin', '<div class="egx-sib" style="margin:6px 0"><b>Invoice ' + esc(r.inv || '') + ' · ' + g.length + ' trucks:</b> ' + g.map(function (x, i) { return '<span class="chip' + (x === r ? ' cg' : '') + '">Truck ' + (i + 1) + ' · ' + esc(x.container || x.vehicle || '#' + x.sr) + (x.driver ? ' · ' + esc(x.driver) : '') + ' · ' + esc(x.position || '') + '</span>'; }).join(' ') + '</div>'); }
+      var s9 = r && stg(r); if (r && can('egEdit') && s9 >= K.TOPORT && s9 <= K.TOWH) { var tl2 = document.querySelector('#dt .egtl'); if (tl2) { var dw = document.createElement('div'); dw.style.margin = '8px 0'; dw.innerHTML = waBtn(r) + ' <span class="mu">Ask ' + esc(r.driver || 'the driver') + ' for an update' + (r.mobile ? ' · ' + esc(r.mobile) : '') + '</span>'; tl2.parentNode.insertBefore(dw, tl2); var wb = dw.querySelector('.egwa'); if (wb) wb.onclick = function () { waAsk(r); }; } }
       var kvb = [].filter.call(document.querySelectorAll('#dt .kv span'), function (s) { return s.textContent === 'Vehicle'; })[0]; if (kvb) kvb.textContent = 'Truck plate no.';
       var kc = [].filter.call(document.querySelectorAll('#dt .kv span'), function (s) { return s.textContent === 'Total CTN'; })[0]; if (kc && r && kc.nextElementSibling && kc.nextElementSibling.textContent.trim() === '-' && ctnOf(r)) kc.nextElementSibling.textContent = nf(ctnOf(r)); } catch (e) {} return x; }; }
   window.BSTEG = { numClean: numClean, checks: checks, stage: stg, isoOk: isoOk, render: render };
