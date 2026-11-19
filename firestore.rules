@@ -102,9 +102,9 @@ service cloud.firestore {
     match /driverUpdates/{id} {
       allow create: if request.resource.data.keys().hasOnly(['tok', 'row', 'step', 'label', 'lat', 'lon', 'acc', 'note', 'at', 'status', 'ua'])
         && request.resource.data.tok is string && request.resource.data.status == 'new'
-        && exists(/databases/$(database)/documents/drvlinks/$(request.resource.data.tok))
-        && get(/databases/$(database)/documents/drvlinks/$(request.resource.data.tok)).data.active == true
-        && request.resource.data.row == get(/databases/$(database)/documents/drvlinks/$(request.resource.data.tok)).data.row
+        && exists(/databases/$(db)/documents/drvlinks/$(request.resource.data.tok))
+        && get(/databases/$(db)/documents/drvlinks/$(request.resource.data.tok)).data.active == true
+        && request.resource.data.row == get(/databases/$(db)/documents/drvlinks/$(request.resource.data.tok)).data.row
         && request.resource.data.step is string && request.resource.data.step.size() < 20
         && (!('note' in request.resource.data) || (request.resource.data.note is string && request.resource.data.note.size() < 600))
         && (!('ua' in request.resource.data) || (request.resource.data.ua is string && request.resource.data.ua.size() < 300));
