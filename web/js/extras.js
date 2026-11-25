@@ -26,7 +26,7 @@
     '.xbar{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 12px}.xbar button{border-radius:10px;padding:8px 14px;font-weight:600;background:#fff;border:1px solid var(--bd);cursor:pointer}' +
     '.xbar button.xtrk{background:var(--ac);border-color:var(--ac);color:#fff}.xbar button.xtrk:hover{background:var(--acd);color:#fff}' +
     '.xbar button:hover{border-color:var(--ac);color:var(--acd)}.xbar .xn{display:inline-block;min-width:20px;padding:0 6px;margin-left:4px;border-radius:999px;background:#e8590c;color:#fff;font-size:12px}' +
-    '#ovpo,#ovxl{z-index:72}#ovpf{z-index:76}#ovpo .box,#ovxl .box{max-width:1250px}#ovpf .box{max-width:980px}' +
+    '#ovpo,#ovxl{z-index:72}.pobulk{display:flex;gap:8px;align-items:center;padding:8px 12px;margin-bottom:8px;border-radius:10px;background:#fdecea;border:1px solid #f5c2bd}button.dng{color:#b42318;border-color:#f5c2bd}button.dng:hover{background:#fdecea}#ovpf{z-index:76}#ovpo .box,#ovxl .box{max-width:1250px}#ovpf .box{max-width:980px}' +
     '.xh{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}.xh h2{margin:0;font-size:18px}.xh span{display:flex;gap:6px;flex-wrap:wrap}' +
     '.xban{margin:12px 0;padding:12px 14px;border-radius:12px;background:#fff7e6;border:1px solid #f5c46b;color:#5c3b00;display:flex;gap:10px;align-items:center;flex-wrap:wrap}.xban b{color:#8a5a00}' +
     '.xf{display:flex;gap:6px;flex-wrap:wrap;margin:12px 0 8px;align-items:center}.xf button{border-radius:999px;padding:5px 12px}.xf button.on{background:#e6f6ee;border-color:var(--ac);color:var(--acd);font-weight:700}.xf input{min-width:220px;flex:1}' +
@@ -129,21 +129,35 @@
     var l = PO.list.filter(function (p) { var st = p.status || 'Open'; return PO.f === 'all' || (PO.f === 'open' ? (st === 'Open' || st === 'Partly shipped') : PO.f === 'done' ? st === 'Fully shipped' : st === 'Cancelled'); })
       .filter(function (p) { return !q || [p.poNo, p.supplier, p.shipper, p.brand, p.country, p.origin, p.remarks].concat(p.items.map(function (i) { return i.desc; })).join(' ').toLowerCase().indexOf(q) >= 0; });
     if (!l.length) { $('po-l').innerHTML = '<div class="mu" style="padding:16px">No purchase orders or schedules here yet.' + (canEdit(sc) ? ' Click <b>+ New PO / schedule</b> to add one.' : '') + '</div>'; return; }
-    $('po-l').innerHTML = '<div class="tw"><table class="cmp"><thead><tr><th>PO / schedule</th><th>' + (sc === 'eg' ? 'Planned dispatch' : 'ETD (planned)') + '</th><th>Supplier</th><th>Items ordered</th><th>Shipped so far</th><th>Status</th><th></th></tr></thead><tbody>' +
+    var cd = canDel(sc); PO.sel = PO.sel || {}; var vis = {}; l.forEach(function (p) { vis[p.id] = 1; }); Object.keys(PO.sel).forEach(function (k) { if (!vis[k]) delete PO.sel[k]; });
+    var nSel = Object.keys(PO.sel).length;
+    $('po-l').innerHTML = (cd ? '<div class="pobulk"' + (nSel ? '' : ' style="display:none"') + '><b>' + nSel + ' selected</b> <button type="button" class="sm dng" data-pdx="1">🗑 Delete selected</button> <button type="button" class="sm" data-pdc="1">Clear</button></div>' : '') +
+      '<div class="tw"><table class="cmp"><thead><tr>' + (cd ? '<th style="width:28px"><input type="checkbox" data-pall="1" title="Select all shown"' + (nSel && nSel === l.length ? ' checked' : '') + '></th>' : '') + '<th>PO / schedule</th><th>' + (sc === 'eg' ? 'Planned dispatch' : 'ETD (planned)') + '</th><th>Supplier</th><th>Items ordered</th><th>Shipped so far</th><th>Status</th><th></th></tr></thead><tbody>' +
       l.map(function (p) { var t = poTotals(p), sh = shippedOf(p), ord = sc === 'eg' ? t.ctn : t.qty, done = sc === 'eg' ? sh.ctn : sh.qty, pct = ord ? Math.min(100, Math.round(done / ord * 100)) : 0;
         var od = p.status !== 'Fully shipped' && p.status !== 'Cancelled' && p.sched && p.sched < today();
-        return '<tr><td data-label="PO / schedule"><b>' + esc(p.poNo) + '</b><div class="mu">' + esc(p.kind || 'Purchase order') + (p.poDate ? ' · ' + esc(p.poDate) : '') + (p.month ? ' · ' + esc(p.month) : '') + '</div></td>' +
+        return '<tr>' + (cd ? '<td data-label=""><input type="checkbox" data-psel="' + esc(p.id) + '"' + (PO.sel[p.id] ? ' checked' : '') + '></td>' : '') + '<td data-label="PO / schedule"><b>' + esc(p.poNo) + '</b><div class="mu">' + esc(p.kind || 'Purchase order') + (p.poDate ? ' · ' + esc(p.poDate) : '') + (p.month ? ' · ' + esc(p.month) : '') + '</div></td>' +
           '<td data-label="' + (sc === 'eg' ? 'Planned dispatch' : 'ETD') + '">' + esc(p.sched || '-') + (od ? '<div class="late" style="font-size:12px">Past due</div>' : '') + '</td>' +
           '<td data-label="Supplier">' + esc(p.supplier || '-') + '<div class="mu">' + esc([p.brand, p.shipper, p.country || p.origin].filter(Boolean).join(' · ')) + '</div></td>' +
           '<td data-label="Items" class="pit">' + p.items.map(function (i) { return '<div>' + esc(i.desc) + (i.pack ? ' (' + esc(i.pack) + ')' : '') + ': <b>' + (sc === 'eg' ? fmtN(i.ctn) + ' ctn' + (i.pallets ? ' / ' + fmtN(i.pallets) + ' plt' : '') : fmtN(i.qty) + ' ' + esc(i.unit)) + '</b></div>'; }).join('') + '</td>' +
           '<td data-label="Shipped">' + (sh.n ? '<b>' + sh.n + '</b> ' + (sc === 'eg' ? 'container' + (sh.n > 1 ? 's' : '') + ' · ' + fmtN(sh.ctn) + ' ctn' : 'shipment' + (sh.n > 1 ? 's' : '')) : '<span class="mu">Nothing yet</span>') + (ord ? '<div class="pbar"><i style="width:' + pct + '%"></i></div><div class="mu" style="font-size:11.5px">' + pct + '% of ordered</div>' : '') + '</td>' +
           '<td data-label="Status"><span class="pst ' + pstC(p.status) + '">' + esc(p.status || 'Open') + '</span></td>' +
           '<td data-label="">' + (canEdit(sc) && p.status !== 'Cancelled' && p.status !== 'Fully shipped' ? '<button class="p sm" type="button" data-pmk="' + esc(p.id) + '">➜ Make ' + (sc === 'eg' ? 'container entry' : 'shipment') + '</button> ' : '') +
-          '<button class="sm" type="button" data-ped="' + esc(p.id) + '">' + (canEdit(sc) ? 'Edit' : 'View') + '</button></td></tr>'; }).join('') + '</tbody></table></div>';
+          '<button class="sm" type="button" data-ped="' + esc(p.id) + '">' + (canEdit(sc) ? 'Edit' : 'View') + '</button>' + (cd ? ' <button class="sm dng" type="button" data-pdel="' + esc(p.id) + '" title="Delete this PO">🗑</button>' : '') + '</td></tr>'; }).join('') + '</tbody></table></div>';
   }
   document.addEventListener('click', function (e) {
-    var b = e.target.closest('[data-pof],[data-pmk],[data-ped]'); if (!b || !$('ovpo').contains(b)) return;
+    var b = e.target.closest('[data-pof],[data-pmk],[data-ped],[data-pdel],[data-psel],[data-pall],[data-pdx],[data-pdc]'); if (!b || !$('ovpo').contains(b)) return;
     if (b.dataset.pof) { PO.f = b.dataset.pof; drawPOs(); return; }
+    if (b.dataset.psel) { if (b.checked) PO.sel[b.dataset.psel] = 1; else delete PO.sel[b.dataset.psel]; drawList(); return; }
+    if (b.dataset.pall) { [].forEach.call($('po-l').querySelectorAll('[data-psel]'), function (c) { if (b.checked) PO.sel[c.dataset.psel] = 1; else delete PO.sel[c.dataset.psel]; }); drawList(); return; }
+    if (b.dataset.pdc) { PO.sel = {}; drawList(); return; }
+    if (b.dataset.pdel || b.dataset.pdx) { var ids = b.dataset.pdel ? [b.dataset.pdel] : Object.keys(PO.sel), ps = PO.list.filter(function (x) { return ids.indexOf(x.id) >= 0; }); if (!ps.length) return;
+      var lk = ps.filter(function (x) { return linkedOf(x).length; }).length;
+      if (!confirm('Delete ' + (ps.length === 1 ? ps[0].poNo : ps.length + ' purchase orders / schedules:\n' + ps.slice(0, 12).map(function (x) { return '• ' + x.poNo + (x.supplier ? ' (' + x.supplier + ')' : ''); }).join('\n') + (ps.length > 12 ? '\n…and ' + (ps.length - 12) + ' more' : '')) + '?' +
+        (lk ? '\n\n' + lk + ' of them already have container entries / shipments made from them. Those entries stay; only the PO is removed.' : '') + '\n\nThis cannot be undone here (the nightly backup keeps a copy).')) return;
+      b.disabled = true; var bad = [];
+      ps.reduce(function (pr, x) { return pr.then(function () { return call('deletePO', x.id).then(function () { delete PO.sel[x.id]; }, function (er) { bad.push(x.poNo + ': ' + er.message); }); }); }, Promise.resolve())
+        .then(function () { if (bad.length) alert('Could not delete:\n' + bad.join('\n')); loadPOs(); });
+      return; }
     var p = PO.list.filter(function (x) { return x.id === (b.dataset.pmk || b.dataset.ped); })[0]; if (!p) return;
     if (b.dataset.pmk) makeFromPO(p); else poForm(p);
   });
